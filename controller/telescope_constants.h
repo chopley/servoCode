@@ -91,7 +91,7 @@
 #define MAX_ALT_ACCEL 20
 #define MIN_ALT_ACCEL -20
 //maximum ramp speed (this controls the antenna acceleration)
-#define MAX_AZ_RAMP 100
+#define MAX_AZ_RAMP 25
 #define MAX_ALT_RAMP 100
 //floating point encoder position limits
 #define MAX_AZ_VAL_FLOAT 110 //change these when the encoders are changed

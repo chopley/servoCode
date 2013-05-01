@@ -2949,7 +2949,7 @@ ramp (volatile long *pid_return_old, long *az_pid1, long *az_pid2,
 	  //printf("Ramp alt2 overload: Rounding up to %i\n,",*alt_pid2);
 	}
     }
-
+/*
   if (!((*az_pid1 < MAX_AZ) && (*az_pid1 > MIN_AZ)))
     {
       if (*az_pid1 < MIN_AZ)
@@ -2996,7 +2996,7 @@ ramp (volatile long *pid_return_old, long *az_pid1, long *az_pid2,
 	  *alt_pid2 = MAX_ALT;
 	}
     }
-
+*/
 
 }
 
