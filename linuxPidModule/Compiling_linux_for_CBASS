@@ -1,0 +1,16 @@
+
+
+make ARCH=arm CROSS_COMPILE=arm-linux- INSTALL_MOD_PATH=/media/embedded modules/
+uImage
+
+[This creates the linux image used by U-Boot]
+
+This should be copied into the appropriate place in the windows SAMBA directory as uImage_write. Copy NADNFLASH.tcl to /lib/AT91SAM9260ek/
+
+Run AT91SAM9260_demo_linux_Nandflash.bat (edit to correct device)
+
+If the AT91SAM9260 is then restored to the factory setting, it will load the appropriate linux image (uImage_write) into the correct memory space of the AT91SAM9260. This is the most foolproof and safest way of achieving this.
+
+make ARCH=arm CROSS_COMPILE=arm-linux- INSTALL_MOD_PATH=/media/embedded modules
+
+[This does the cross compiling for the 2.6.26 kernel]

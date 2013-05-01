@@ -1,0 +1,1 @@
+./give_command_tcp c-bass2 108 140000 60000	30000	40000

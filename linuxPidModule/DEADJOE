@@ -1,0 +1,21 @@
+
+*** These modified files were found in JOE when it aborted on Tue Aug 26 16:11:45 2008
+*** JOE was aborted by UNIX signal 1
+
+*** File '(Unnamed)'
+m128
+Current
+ext3
+
+*** File '(Unnamed)'
+arch/arm/mach-at91/ics1523.c
+drivers/char/Makefile
+patch-2.6.26.3
+drivers/char/Makefile
+drivers/char/Kconfig
+/home/charles/.kde/share/config/kioslaverc
+/etc/exports
+linux_sources/linux-2.6.26/Documentation/filesystems/nfsroot.txt
+/etc/exports
+/etc/exports
+Documentation/filesystems/nfsroot.txt

@@ -1,0 +1,26 @@
+--- linux2.6.23/drivers/usb/storage/transport.c.old	2008-08-12 11:29:01.000000000 +0200
++++ linux2.6.23/drivers/usb/storage/transport.c	2008-08-12 11:30:09.000000000 +0200
+@@ -1034,8 +1034,21 @@
+ 
+ 	/* try to compute the actual residue, based on how much data
+ 	 * was really transferred and what the device tells us */
+-	if (residue) {
+-		if (!(us->flags & US_FL_IGNORE_RESIDUE)) {
++	if (residue && !(us->flags & US_FL_IGNORE_RESIDUE)) {
++
++		/* Heuristically detect devices that generate bogus residues
++		* by seeing what happens with INQUIRY and READ CAPACITY
++		* commands.
++		*/
++		if (bcs->Status == US_BULK_STAT_OK &&
++		scsi_get_resid(srb) == 0 &&
++		((srb->cmnd[0] == INQUIRY &&
++		transfer_length == 36) ||
++		(srb->cmnd[0] == READ_CAPACITY &&
++		transfer_length == 8))) {
++		us->flags |= US_FL_IGNORE_RESIDUE;
++
++		} else {
+ 			residue = min(residue, transfer_length);
+ 			scsi_set_resid(srb, max(scsi_get_resid(srb),
+ 			                                       (int) residue));

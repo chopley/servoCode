@@ -1,0 +1,71 @@
+all: 
+	#arm-unknown-linux-gnu-gcc motor_init.c crc_gen.c /usr/lib/libarmcsla.a -o motor_init -lpthread -lm
+	#arm-unknown-linux-gnu-gcc file_control.c crc_gen.c /usr/lib/libarmcsla.a -o file_control -lpthread -lm
+	#arm-unknown-linux-gnu-gcc antenna_status.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_status -lpthread -lm
+	#arm-unknown-linux-gnu-gcc control_slalib.c crc_gen.c /usr/lib/libarmcsla.a -o control_slalib -lpthread -lm
+	#arm-unknown-linux-gnu-gcc input_azimuth_zone.c crc_gen.c /usr/lib/libarmcsla.a -o azimuth_zone -lpthread -lm
+	#arm-unknown-linux-gnu-gcc read_azimuth_zone.c crc_gen.c /usr/lib/libarmcsla.a -o read_azimuth_zone -lpthread -lm
+	#arm-unknown-linux-gnu-gcc antenna_status_with_ioctl.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_status_with_ioctl -lpthread -lm
+	#arm-unknown-linux-gnu-gcc rewrite.c crc_gen.c /usr/lib/libarmcsla.a -o rewrite -lpthread -lm
+	#arm-unknown-linux-gnu-gcc give_command.c crc_gen.c /usr/lib/libarmcsla.a -o give_command -lpthread -lm
+	#gcc give_command.c crc_gen.c /usr/lib/libarmcsla.a -o give_command_to_arm -lpthread -lm
+	#gcc moon.c crc_gen.c /usr/lib/libcsla.a -o moon -lpthread -lm
+	#gcc tcp_server.c -o tcp_server -lpthread -lm
+	#gcc tcp_server_split.c -o tcp_server_split -lpthread -lm
+	#gcc give_command_tcp.c pointing.c /usr/lib/libcsla.a -o give_command_tcp -lpthread -lm
+	#arm-unknown-linux-gnu-gcc rewritetcp.c pointing.c crc_gen.c /usr/lib/libarmcsla.a -o rewritetcp -lpthread -lm
+	#arm-unknown-linux-gnu-gcc rewritetcp_redone.c pointing.c crc_gen.c /usr/lib/libarmcsla.a -o rewritetcp_redone -lpthread -lm
+	#arm-unknown-linux-gnu-gcc fifotest.c /usr/lib/libarmcsla.a -o fifotest -lpthread -lm
+	#gcc slalib_test.c /usr/lib/libcsla.a -o slalib_test -lpthread -lm
+	#gcc slalib_test1.c /usr/lib/libcsla.a -o slalib_test1 -lpthread -lm
+	#gcc slalib_test2.c /usr/lib/libcsla.a -o slalib_test2 -lpthread -lm
+	#arm-unknown-linux-gnu-gcc max7301.c crc_gen.c -o max7301 -lpthread -lm
+	#arm-unknown-linux-gnu-gcc ad5362.c crc_gen.c -o ad5362 -lpthread -lm
+	#arm-unknown-linux-gnu-gcc ad7367.c crc_gen.c -o ad7367 -lpthread -lm
+	#arm-unknown-linux-gnu-gcc encoder.c crc_gen.c -o encoder -lpthread -lm
+	#arm-unknown-linux-gnu-gcc test_all.c crc_gen.c -o test_all -lpthread -lm
+	#arm-unknown-linux-gnu-gcc off_contactors.c crc_gen.c -o off_contactors -lpthread -lm
+	#arm-unknown-linux-gnu-gcc on_contactors.c crc_gen.c -o on_contactors -lpthread -lm
+	#arm-unknown-linux-gnu-gcc on_clutchbrake.c crc_gen.c -o on_clutchbrake -lpthread -lm
+	#arm-unknown-linux-gnu-gcc off_clutchbrake.c crc_gen.c -o off_clutchbrake -lpthread -lm
+	#arm-unknown-linux-gnu-gcc antenna_control.c pointing.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_control -lpthread -lm
+	 
+fifo:
+	arm-unknown-linux-gnu-gcc fifotest.c /usr/lib/libarmcsla.a -o fifotest -lpthread -lm
+	gcc fifotestpc.c -o fifotestpc -lpthread -lm
+
+max7301:
+	arm-unknown-linux-gnu-gcc max7301.c crc_gen.c -o max7301 -lpthread -lm
+
+slalib:
+	gcc slalib_test2.c /usr/lib/libcsla.a -o slalib_test2 -lpthread -lm
+development_old:
+	arm-unknown-linux-gnu-gcc ad7367.c crc_gen.c -o ad7367 -lpthread -lm
+	arm-unknown-linux-gnu-gcc antenna_status.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_status -lpthread -lm
+	gcc give_command_tcp_struct.c pointing.c /usr/lib/libcsla.a -o give_command_tcp -lpthread -lm
+	gcc give_command_tcp_struct_ovro.c pointing.c /usr/lib/libcsla.a -o give_command_tcp_ovro -lpthread -lm
+	arm-unknown-linux-gnu-gcc antenna_control.c pointing.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_control -lpthread -lm
+	arm-unknown-linux-gnu-gcc input_azimuth_zone.c crc_gen.c /usr/lib/libarmcsla.a -o azimuth_zone -lpthread -lm
+	arm-unknown-linux-gnu-gcc read_azimuth_zone.c crc_gen.c /usr/lib/libarmcsla.a -o read_azimuth_zone -lpthread -lm
+	arm-unknown-linux-gnu-gcc max7301readtest.c crc_gen.c -o max7301readtest -lpthread -lm
+	arm-unknown-linux-gnu-gcc max7301.c crc_gen.c -o max7301 -lpthread -lm
+	arm-unknown-linux-gnu-gcc gpiotest.c crc_gen.c -o gpiotest -lpthread -lm
+	arm-unknown-linux-gnu-gcc antenna_control_ovro.c pointing.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_control_ovro -lpthread -lm
+	
+development:
+	#arm-unknown-linux-gnu-gcc ad7367.c crc_gen.c -o ad7367 -lpthread -lm
+	#arm-unknown-linux-gnu-gcc antenna_status.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_status -lpthread -lm
+	#gcc give_command_tcp_struct.c pointing.c /usr/lib/libcsla.a -o give_command_tcp -lpthread -lm
+	#gcc test_tcp_port_ovro_commands.c pointing.c /usr/lib/libcsla.a -o test_tcp_port_ovro -lpthread -lm
+	#arm-unknown-linux-gnu-gcc antenna_control.c pointing.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_control -lpthread -lm
+	#arm-unknown-linux-gnu-gcc input_azimuth_zone.c crc_gen.c /usr/lib/libarmcsla.a -o azimuth_zone -lpthread -lm
+	#arm-unknown-linux-gnu-gcc read_azimuth_zone.c crc_gen.c /usr/lib/libarmcsla.a -o read_azimuth_zone -lpthread -lm
+	#arm-unknown-linux-gnu-gcc max7301readtest.c crc_gen.c -o max7301readtest -lpthread -lm
+	#arm-unknown-linux-gnu-gcc max7301.c crc_gen.c -o max7301 -lpthread -lm
+	#arm-unknown-linux-gnu-gcc gpiotest.c crc_gen.c -o gpiotest -lpthread -lm
+	#arm-unknown-linux-gnu-gcc antenna_control_ovro.c pointing.c crc_gen.c /usr/lib/libarmcsla.a -o antenna_control_ovro -lpthread -lm	
+	arm-unknown-linux-gnu-gcc servoCode.c pointing.c crc_gen.c  /usr/lib/libarmcsla.a -o antenna_control_ovro -lpthread -lm	
+	#arm-unknown-linux-gnu-gcc interrupt_test_thread.c -o interrupt_test -lpthread -lm	
+	
+servo:
+	arm-unknown-linux-gnu-gcc servoCode.c pointing.c crc_gen.c  /usr/lib/libarmcsla.a -o servoControl -lpthread -lm	
