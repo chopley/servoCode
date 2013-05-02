@@ -401,7 +401,7 @@ servlet (void *childfd) /* servlet thread */
 		       readout.alt_err_ready_to_read[2],
 		       readout.alt_err_ready_to_read[3],
 		       readout.alt_err_ready_to_read[4]);
-	      printf ("%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
+	 /*     printf ("%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
 		       GIM, readout.az_ready_to_read[0],
 		       readout.az_ready_to_read[1],
 		       readout.az_ready_to_read[2],
@@ -421,7 +421,7 @@ servlet (void *childfd) /* servlet thread */
 		       readout.alt_err_ready_to_read[1],
 		       readout.alt_err_ready_to_read[2],
 		       readout.alt_err_ready_to_read[3],
-		       readout.alt_err_ready_to_read[4]);
+		       readout.alt_err_ready_to_read[4]); */
 	      readout.ready = 0;
 	    }
 	  else if (readout.ready != 1)
@@ -1560,7 +1560,6 @@ control_loop (int pid_handle, struct pid_structure *userspace)
   double prev_azencoderd, prev_altencoderd;
   time_t current_time;
   unsigned int status_vec[20];
-  double accel_az = 0, accel_alt = 0;
   double az_vel_vec[5], alt_vel_vec[5], az_acc_vec[5], alt_acc_vec[5],
     az_pos_vec[5], alt_pos_vec[5];
   double prev_azencoder_pos[20];
@@ -1569,7 +1568,12 @@ control_loop (int pid_handle, struct pid_structure *userspace)
   double tdouble, tdouble1, td;
   double avevel_az[10], avevel_alt[10], avevel_azsorted[10],
     avevel_altsorted[10];
+  double pos_az = 0, pos_alt = 0;
+  double pos_az_past = 0, pos_alt_past = 0;
   double vel_az = 0, vel_alt = 0;
+  double vel_az_past = 0, vel_alt_past = 0;
+  double accel_az = 0, accel_alt = 0;
+  double accel_az_past = 0, accel_alt_past = 0;
   double altitude_val = 0, azimuth_val = 0;
   double azimuth_val_uncorrected,altitude_val_uncorrected;
   double azerr_uncorrected,alterr_uncorrected;
@@ -1673,6 +1677,12 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 	  tachoalt1_prev = (double) alttacho1;
 	  tachoalt2_prev = (double) alttacho2;
 
+	pos_az_past=loop.azimuth_command_double;
+	pos_alt_past=loop.altitude_command_double;
+	vel_az_past=vel_az;
+	vel_alt_past=vel_alt;
+	accel_az_past=accel_az;
+	accel_alt_past=accel_alt;
 	  //read from the kernel
 
 	  read_ret = read (fd, &user, sizeof (user));	//THIS IS WHERE THE TICK INTERVAL IS IMPLEMENTED. The kernel blocks the read and this is released by an onboard timer overflow interrupt routine. This gives an consistent timing mechanism to the pid control loop.
@@ -1734,6 +1744,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 
 	  pos_az_dot = loop.azimuth_encoder_double - prev_azencoderd;
 	  pos_alt_dot = loop.altitude_encoder_double - prev_altencoderd;
+	
 
 
 
@@ -1775,8 +1786,6 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		  //save the previous command velocities in preparation to calculate the accelerations
 
 		  //save the previous command positions in preparation to calculate the velocities
-		  vel_az = azimuth_val;
-		  vel_alt = altitude_val;
 	
 		    
 		      //printf("Horizontal List\n"); 
@@ -1798,8 +1807,6 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		      		td = user.time_struct.tv_usec / 1000000.;
 		    	        temporary_double[0] = azimuth_val;
 		      		temporary_double[1] = altitude_val;
-		      		//azimuth_val=loop.azimuth_encoder_double+td*(command.comaz[i+1]-loop.azimuth_encoder_double);
-		      		//altitude_val = loop.altitude_encoder_double+td*(command.comalt[i+1]-loop.altitude_encoder_double);
 		      		//correct for maximum allowable command speeds
 		      			if(countera==20){
 						//printf("command %f %f \n",command.comaz[i],command.comaz[i+1]);
@@ -1870,12 +1877,58 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		  	//2. make sure the velocity command is zeroed past this value
 		  	//3. Also (preferably) define a slow zone that should prevent the elevation from going wrong and allow the antenna to be parked at zenith
 
-
 		  	loop.azimuth_command_double = azimuth_val;
 		  	loop.altitude_command_double = altitude_val;
 		  	//Calculate the velocity of the the commands by using the previous commanded angle and the current
-		  	vel_az = azimuth_val - vel_az;
-		  	vel_alt = altitude_val - vel_alt;
+		  	vel_az = loop.azimuth_command_double - pos_az_past;
+		  	vel_alt = loop.altitude_command_double - pos_alt_past;
+
+			accel_az=vel_az-vel_az_past;
+			accel_alt=vel_alt-vel_alt_past;
+//-------------------------------------------------         
+
+
+
+	  //put in maximum accelerations permitted- the enums are defined in telescope_constants.h
+	   if ((accel_az > (double) MAX_AZ_ACCEL / 1000.)
+		   || (accel_az < (double) MIN_AZ_ACCEL / 1000.))
+	    {
+	      printf ("Azimuth Acceleration Limit%f %f %f %f %f\n",loop.azimuth_command_double,pos_az_past,accel_az,vel_az,vel_az_past);
+	      if (accel_az > (double) MAX_AZ_ACCEL / 1000.)
+		{
+		loop.azimuth_command_double = loop.azimuth_command_double-0.01 ;
+		}
+	      else if (accel_az < (double) MIN_AZ_ACCEL / 1000.)
+		{
+		loop.azimuth_command_double = loop.azimuth_command_double+0.01;
+		}
+	    }
+
+
+	   if ((accel_alt > (double) MAX_ALT_ACCEL / 1000.)
+		   || (accel_alt < (double) MIN_ALT_ACCEL / 1000.))
+	    {
+	      printf ("Altitude Acceleration Limit%f %f %f %f %f\n",loop.altitude_command_double,pos_alt_past,accel_alt,vel_alt,vel_alt_past);
+	      if (accel_alt > (double) MAX_ALT_ACCEL / 1000.)
+		{
+		loop.altitude_command_double -=0.01 ;
+		}
+	      else if (accel_alt < (double) MIN_ALT_ACCEL / 1000.)
+		{
+		loop.altitude_command_double += 0.01;
+		}
+	    }
+	//recalculate the command velocity///
+		  	vel_az = loop.azimuth_command_double - pos_az_past;
+		  	vel_alt = loop.altitude_command_double - pos_alt_past;
+
+			accel_az=vel_az-vel_az_past;
+			accel_alt=vel_alt-vel_alt_past;
+		  	
+		azimuth_val=loop.azimuth_command_double;
+		  altitude_val=loop.altitude_command_double;
+//-------------------------------------------------------------------------------       
+
 		  	//if (vel_az > MAX_AZ_POS_SPACE_DEG)
 		    	//{
 		      		//azimuth_val =
@@ -1888,7 +1941,8 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		  	loop.vel_of_alt = 1000. * vel_alt * 100;	//get into mdeg/s
 
 			}
-		  azalt2encoder (azimuth_val, control.delta_az, altitude_val,
+//convert the command position to an encoder position
+		  azalt2encoder (loop.azimuth_command_double, control.delta_az, loop.altitude_command_double,
 				 control.delta_alt, &loop.az_command_long,
 				 &loop.alt_command_long);
 		  sort_azimuth (loop.az_encoder_long, loop.az_command_long,
@@ -1911,12 +1965,17 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			altitude_val=loop.altitude_encoder_double;
 		  	loop.azimuth_command_double = azimuth_val;
 		  	loop.altitude_command_double = altitude_val;
+
+
+
+
+
+
+
 		    
 		  	loop.vel_of_az = 0;
 		  	loop.vel_of_alt = 0;
-		  	azalt2encoder (azimuth_val, control.delta_az, altitude_val,
-				 control.delta_alt, &loop.az_command_long,
-				 &loop.alt_command_long);
+		  azalt2encoder (loop.azimuth_command_double, control.delta_az, loop.altitude_command_double,control.delta_alt, &loop.az_command_long,&loop.alt_command_long);
 		  	sort_azimuth (loop.az_encoder_long, loop.az_command_long,
 				AZIMUTH_LIMIT_HI, AZIMUTH_LIMIT_LO,
 				&loop.az_command_long);
@@ -2111,7 +2170,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 
 
 	readout.instantAzErr = readout.instantCommandAz-loop.azimuth_encoder_double;
-				readout.instantAltErr = readout.instantCommandAz-loop.altitude_encoder_double; 
+				readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double; 
 		      		
 	  readoutStructUpdate(azerr_uncorrected,alterr_uncorrected,&readout,&loop,&user); 
 
@@ -2125,87 +2184,6 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 
 	    }
 
-
-//-------------------------------------------------         
-	  //----------------------Implement acceleration limits
-	  az_pos_vec[0] = az_pos_vec[1];
-	  az_pos_vec[1] = az_pos_vec[2];
-	  az_pos_vec[2] = loop.azimuth_encoder_double;
-	  alt_pos_vec[0] = alt_pos_vec[1];
-	  alt_pos_vec[1] = alt_pos_vec[2];
-	  alt_pos_vec[2] = loop.altitude_encoder_double;
-
-	  az_vel_vec[0] = az_vel_vec[1];
-	  az_vel_vec[1] = az_vel_vec[2];
-	  az_vel_vec[2] = az_pos_vec[2] - az_pos_vec[1];
-	  alt_vel_vec[0] = alt_vel_vec[1];
-	  alt_vel_vec[1] = alt_vel_vec[2];
-	  alt_vel_vec[2] = alt_pos_vec[2] - alt_pos_vec[1];
-
-
-	  az_acc_vec[0] = az_acc_vec[1];
-	  az_acc_vec[1] = az_acc_vec[2];
-	  az_acc_vec[2] = az_pos_vec[2] - 2 * az_pos_vec[1] + az_pos_vec[0];
-
-	  alt_acc_vec[0] = alt_acc_vec[1];
-	  alt_acc_vec[1] = alt_acc_vec[2];
-	  alt_acc_vec[2] =
-	    alt_pos_vec[2] - 2 * alt_pos_vec[1] + alt_pos_vec[0];
-
-	  accel_az = az_acc_vec[2];
-	  accel_alt = alt_acc_vec[2];
-
-	  //put in maximum accelerations permitted- the enums are defined in telescope_constants.h
-	  if ((accel_az < (double) MAX_AZ_ACCEL / 1000.)
-	      && (accel_az > (double) MIN_AZ_ACCEL / 1000.))
-	    {
-	      //pid_return_new[0] = loop.az_pid1;
-	      //pid_return_new[1] = 0.5*loop.az_pid1;
-
-	    }
-	  else if ((accel_az > (double) MAX_AZ_ACCEL / 1000.)
-		   || (accel_az < (double) MIN_AZ_ACCEL / 1000.))
-	    {
-	      printf ("Azimuth Acceleration Limit\n");
-	      if (accel_az > (double) MAX_AZ_ACCEL / 1000.)
-		{
-		  pid_return_new[0] = pid_return_old[0] - 200;
-		  pid_return_new[1] = 0.5 * pid_return_new[0];
-		}
-	      else if (accel_az < (double) MIN_AZ_ACCEL / 1000.)
-		{
-		  pid_return_new[0] = pid_return_old[0] + 200;
-		  pid_return_new[1] = 0.5 * pid_return_new[0];
-		}
-	    }
-
-
-	  //put in maximum accelerations permitted- the enums are defined in telescope_constants.h
-	  if ((accel_alt < (double) MAX_ALT_ACCEL / 1000.)
-	      && (accel_alt > (double) MIN_ALT_ACCEL / 1000.))
-	    {
-
-	      //pid_return_new[2] = loop.alt_pid1;
-	      //pid_return_new[3] = 0.5 * loop.alt_pid1;
-
-	    }
-	  else if ((accel_alt > (double) MAX_ALT_ACCEL / 1000.)
-		   || (accel_alt < (double) MIN_ALT_ACCEL / 1000.))
-	    {
-	      printf ("Altitude Acceleration Limit\n");
-	      if (accel_alt > (double) MAX_ALT_ACCEL / 1000.)
-		{
-		  pid_return_new[2] = pid_return_old[2] - 200;
-		  pid_return_new[3] = 0.5 * pid_return_new[2];
-		}
-	      else if (accel_alt < (double) MIN_ALT_ACCEL / 1000.)
-		{
-		  pid_return_new[2] = pid_return_old[2] + 200;
-		  pid_return_new[3] = 0.5 * pid_return_new[2];
-		}
-	    }
-
-//-------------------------------------------------------------------------------       
 
 
 
@@ -2882,121 +2860,48 @@ ramp (volatile long *pid_return_old, long *az_pid1, long *az_pid2,
   current_ramp_alt2 = *alt_pid2 - pid_return_old_alt2;
 
 
-  if (!
-      ((current_ramp_az1 < MAX_AZ_RAMP) && (current_ramp_az1 > -MAX_AZ_RAMP)))
-    {
-      // printf("AZ 1 over Ramp range- adjusting\n");
-      if (current_ramp_az1 < 0)
+      if (current_ramp_az1 < -MAX_AZ_RAMP)
 	{
-	  *az_pid1 = pid_return_old_az1 - MAX_AZ_RAMP;
+	 // *az_pid1 = pid_return_old_az1 - MAX_AZ_RAMP;
+	    *az_pid1 = pid_return_old_az1-MAX_AZ_RAMP;
 	  // printf("Ramp az1 overload: Rounding down to %i\n,",*az_pid1);
 	}
-      if (current_ramp_az1 >= 0)
+      if (current_ramp_az1 > MAX_AZ_RAMP)
 	{
-	  *az_pid1 = pid_return_old_az1 + MAX_AZ_RAMP;
+	   *az_pid1 = pid_return_old_az1+MAX_AZ_RAMP;
+	 // *az_pid1 =  MAX_AZ_RAMP;
+	  //printf("Ramp az1 overload: Rounding up to %i\n,",*az_pid1);
+	}
+      
+     if (current_ramp_az2 < -MAX_AZ_RAMP)
+	{
+	 // *az_pid1 = pid_return_old_az1 - MAX_AZ_RAMP;
+	    *az_pid2 = pid_return_old_az2-MAX_AZ_RAMP;
+	  // printf("Ramp az1 overload: Rounding down to %i\n,",*az_pid1);
+	}
+      if (current_ramp_az2 > MAX_AZ_RAMP)
+	{
+	  *az_pid2 = pid_return_old_az2+ MAX_AZ_RAMP;
 	  //printf("Ramp az1 overload: Rounding up to %i\n,",*az_pid1);
 	}
 
-    }
+      if (current_ramp_alt1 < -MAX_ALT_RAMP)
+	{
+	    *alt_pid1 = pid_return_old_alt1-MAX_ALT_RAMP;
+	}
+      if (current_ramp_alt1 > MAX_ALT_RAMP)
+	{
+	  *alt_pid1 =pid_return_old_alt1+ MAX_ALT_RAMP;
+	}
+      if (current_ramp_alt2 < -MAX_ALT_RAMP)
+	{
+	    *alt_pid2 = pid_return_old_alt2-MAX_ALT_RAMP;
+	}
+      if (current_ramp_alt2 > MAX_ALT_RAMP)
+	{
+	  *alt_pid2 =pid_return_old_alt2+ MAX_ALT_RAMP;
+	}
 
-  if (!
-      ((current_ramp_az2 < MAX_AZ_RAMP) && (current_ramp_az2 > -MAX_AZ_RAMP)))
-    {
-      //printf("AZ 2 over Ramp range- adjusting out %i %i %i \n",pid_return_old_az2,*az_pid2,current_ramp_az2);
-      if (current_ramp_az2 < 0)
-	{
-	  *az_pid2 = pid_return_old_az2 - MAX_AZ_RAMP;
-	  //printf("Ramp az2 overload: Rounding down to %i\n,",*az_pid2);
-	}
-      if (current_ramp_az2 >= 0)
-	{
-	  *az_pid2 = pid_return_old_az2 + MAX_AZ_RAMP;
-	  //printf("Ramp az2 overload: Rounding up to %i\n,",*az_pid2);
-	}
-    }
-
-  if (!
-      ((current_ramp_alt1 < MAX_ALT_RAMP)
-       && (current_ramp_alt1 > -MAX_ALT_RAMP)))
-    {
-
-      if (current_ramp_alt1 < 0)
-	{
-	  *alt_pid1 = pid_return_old_alt1 - MAX_ALT_RAMP;
-	  //  printf("Ramp alt1 overload: Rounding down to %i\n,",*alt_pid1);
-	}
-      if (current_ramp_alt1 >= 0)
-	{
-	  *alt_pid1 = pid_return_old_alt1 + MAX_ALT_RAMP;
-	  //printf("Ramp alt1 overload: Rounding up to %i\n,",*alt_pid1);
-	}
-    }
-
-  if (!
-      ((current_ramp_alt1 < MAX_ALT_RAMP)
-       && (current_ramp_alt1 > -MAX_ALT_RAMP)))
-    {
-      //printf("ALT 2 over Ramp range- adjusting\n");
-
-      if (current_ramp_alt2 < 0)
-	{
-	  *alt_pid2 = pid_return_old_alt2 - MAX_ALT_RAMP;
-	  //printf("Ramp alt2 overload: Rounding down to %i\n,",*alt_pid2);
-	}
-      if (current_ramp_alt2 >= 0)
-	{
-	  *alt_pid2 = pid_return_old_alt2 + MAX_ALT_RAMP;
-	  //printf("Ramp alt2 overload: Rounding up to %i\n,",*alt_pid2);
-	}
-    }
-/*
-  if (!((*az_pid1 < MAX_AZ) && (*az_pid1 > MIN_AZ)))
-    {
-      if (*az_pid1 < MIN_AZ)
-	{
-	  *az_pid1 = MIN_AZ;
-	}
-      if (*az_pid1 > MAX_AZ)
-	{
-	  *az_pid1 = MAX_AZ;
-	}
-    }
-  if (!((*az_pid2 < MAX_AZ) && (*az_pid2 > MIN_AZ)))
-    {
-      if (*az_pid2 < MIN_AZ)
-	{
-	  *az_pid2 = MIN_AZ;
-	}
-      if (*az_pid2 > MAX_AZ)
-	{
-	  *az_pid2 = MAX_AZ;
-	}
-    }
-
-  if (!((*alt_pid1 < MAX_ALT) && (*alt_pid1 > MIN_ALT)))
-    {
-      if (*alt_pid1 < MIN_ALT)
-	{
-	  *alt_pid1 = MIN_ALT;
-	}
-      if (*alt_pid1 > MAX_ALT)
-	{
-	  *alt_pid1 = MAX_ALT;
-	}
-    }
-
-  if (!((*alt_pid2 < MAX_ALT) && (*alt_pid2 > MIN_ALT)))
-    {
-      if (*alt_pid2 < MIN_ALT)
-	{
-	  *alt_pid2 = MIN_ALT;
-	}
-      if (*alt_pid2 > MAX_ALT)
-	{
-	  *alt_pid2 = MAX_ALT;
-	}
-    }
-*/
 
 }
 
