@@ -434,8 +434,8 @@ servlet (void *childfd) /* servlet thread */
 	}
       else if (!strcmp (commands[0], AEL))
 	{
-//	  printf("AEL command received\n\n");
-  //    		printf ("Received String %s\n", buf);
+	  printf("AEL command received\n\n");
+      		printf ("Received String %s\n", buf);
 	  commandsd[0] = atof (commands[1]);	//az1
 	  commandsd[1] = atof (commands[2]);	//el1
 	  commandsd[2] = atof (commands[3]);	//az2..
@@ -1827,7 +1827,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			  		while (azimuth_val > MAX_AZ_VAL_FLOAT)
 			    		{
 			      			azimuth_val -= 360;
-			      			//printf ("reducing AZ VAL %f\n", azimuth_val);
+			      			printf ("reducing AZ VAL %f\n", azimuth_val);
 			    		}
 			  		//printf("Wrap issue\n");
 				}
@@ -1836,7 +1836,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			  		while (azimuth_val < MIN_AZ_VAL_FLOAT)
 			    		{
 			      			azimuth_val += 360;
-			      			//printf ("Increasing az Val %f azimuth_val\n");
+			      			printf ("Increasing az Val %f azimuth_val\n");
 			    		}
 				}
 
@@ -2169,16 +2169,27 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 
 
 
-	readout.instantAzErr = readout.instantCommandAz-loop.azimuth_encoder_double;
-				readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double; 
+readout.instantAzErr = readout.instantCommandAz-loop.azimuth_encoder_double;
+readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
+//f(readout.instantAzErr >180.){
+//readout.instantAzErr=readout.instantAzErr-360.;
+// 
+//	if(azerr_uncorrected >180.){
+//		azerr_uncorrected=azerr_uncorrected-360.;
+//	} 
 		      		
+//	readout.instantAzErr = azerr1;
+//	readout.instantAltErr = alterr1;
+//azerr_uncorrected is the error compared to the actual given command from the control PC- I correct this on the servo to limit accelerations etc.
 	  readoutStructUpdate(azerr_uncorrected,alterr_uncorrected,&readout,&loop,&user); 
+//	  readoutStructUpdate(azerr1,alterr1,&readout,&loop,&user); 
 
 
 
 	  if (countera == 9)
 	    {
-	      //printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf ",pid_return_new[0],velpid_out_az,loop.az_pid1,loop.vel_of_az,loop.kfcoeffs[1]*loop.vel_of_az,aztacho1,azencoder_vel[7],loop.vel_of_alt,azerr1);
+	      printf("Command pos %lf Error %lf\n",loop.azimuth_command_double,azerr1);
+	     // printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf ",pid_return_new[0],velpid_out_az,loop.az_pid1,loop.vel_of_az,loop.kfcoeffs[1]*loop.vel_of_az,aztacho1,azencoder_vel[7],loop.vel_of_alt,azerr1);
 	      //printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf \n",pid_return_new[2],velpid_out_alt,loop.alt_pid1,loop.vel_of_alt,loop.kfcoeffs[3]*loop.vel_of_alt,alttacho1,altencoder_vel[7],loop.vel_of_alt,alterr1);
 	      //printf("Az Encoder Velocity Tacho %d %f %f\n",aztacho[0],loop.vel_of_az,loop.kfcoeffs[0]*loop.vel_of_az);
 
