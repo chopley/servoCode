@@ -41,7 +41,7 @@
 // They also are permanently (i.e changing them requires recompiling the program)  used for the slow zone regions
 //so the soft_limit() routine will use these values to define 'dangerous' zones i.e near to the limits and cap the antenna speed in these zones. These need to be changed after changing the encoder.
 #define AZIMUTH_SAFETY_LO 45000 
-#define AZIMUTH_SAFETY_HI 135000
+#define AZIMUTH_SAFETY_HI 135000 //current hard limit is at 141000
 #define ELEVATION_SAFETY_LO 33300 
 #define ELEVATION_SAFETY_HI 48500
 
@@ -55,8 +55,8 @@
 
 
 
-#define MAX_TACHO_ALLOWABLE 5000
-#define MIN_TACHO_ALLOWABLE -5000
+#define MAX_TACHO_ALLOWABLE 8000
+#define MIN_TACHO_ALLOWABLE -8000
 //this section defines constants used when excepting commands from the network- it also defines ports that are used
 #define LOCAL_SERVER_PORT_OVRO 1503
 #define LOCAL_SERVER_PORT_STRUCT 1502
@@ -75,16 +75,16 @@
 #define MAX_ALT_POS_PID 7000
 #define MIN_ALT_POS_PID -7000
 //absolute maximum motor speed output after pid- in arbitrary units just fiddle with this till more or less right
-#define MAX_AZ_SPEED 5000
-#define MIN_AZ_SPEED -5000
+#define MAX_AZ_SPEED 8000
+#define MIN_AZ_SPEED -8000
 #define MAX_ALT_SPEED 5000
 #define MIN_ALT_SPEED -5000
 
 //these will define the maximum space between successive control positions (in deg/s)
-#define MAX_AZ_POS_SPACE_DEG 2
-#define MIN_AZ_POS_SPACE_DEG -2
-#define MAX_ALT_POS_SPACE_DEG 1
-#define MIN_ALT_POS_SPACE_DEG -1
+#define MAX_AZ_POS_SPACE_DEG 4.5
+#define MIN_AZ_POS_SPACE_DEG -4.5
+#define MAX_ALT_POS_SPACE_DEG 2
+#define MIN_ALT_POS_SPACE_DEG -2
 //these define the maximum permitted azimuth accelerations that can be commanded to the antenna using the 117 enum (i.e the control that should be used for all user type control- defined as EQUATORAIL2 for historical reasons )-these should be values in mdeg/s/s i.e 1000 means a maximum acceleration of 1000mdeg/s/s or 1deg/s/s- so for a typical cross scan going between 1deg/s and -1 deg/s we would want a turnaround of say 5 seconds giving a acceleration of 2deg/s / 5seconds =0.4 deg/s/s so a value of 400 is appropriate
 #define MAX_AZ_ACCEL 20
 #define MIN_AZ_ACCEL -20
@@ -94,8 +94,8 @@
 #define MAX_AZ_RAMP 30
 #define MAX_ALT_RAMP 30
 //floating point encoder position limits
-#define MAX_AZ_VAL_FLOAT 110 //change these when the encoders are changed
-#define MIN_AZ_VAL_FLOAT -360 //change these when the encoders are changed.
+#define MAX_AZ_VAL_FLOAT 130 //change these when the encoders are changed
+#define MIN_AZ_VAL_FLOAT -270 //change these when the encoders are changed.
 #define MAX_ALT_VAL_FLOAT 87
 #define MIN_ALT_VAL_FLOAT 5
 

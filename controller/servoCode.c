@@ -1558,7 +1558,8 @@ control_loop (int pid_handle, struct pid_structure *userspace)
   unsigned int DAC_val;
   double delta_az, delta_alt;
   double prev_azencoderd, prev_altencoderd;
-  time_t current_time;
+  time_t current_time,oldTime;
+  struct timeval oldTimeVal,currentTimeVal;
   unsigned int status_vec[20];
   double az_vel_vec[5], alt_vel_vec[5], az_acc_vec[5], alt_acc_vec[5],
     az_pos_vec[5], alt_pos_vec[5];
@@ -1636,6 +1637,9 @@ control_loop (int pid_handle, struct pid_structure *userspace)
       //initialise the temporary command position doubles
       azimuth_val = loop.azimuth_command_double;
       altitude_val = loop.altitude_command_double;
+      oldTime=0;
+      gettimeofday(&currentTimeVal,NULL);
+      gettimeofday(&oldTimeVal,NULL);
       while (1)
 	{			//probably don't need this while statement anymore? Can just be while(1) ?
 
@@ -1770,6 +1774,11 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 	      tdouble = user.time_struct.tv_usec;
 
 	      time (&current_time);
+	      gettimeofday(&currentTimeVal,NULL);
+		if((currentTimeVal.tv_sec-oldTimeVal.tv_sec)>=1){
+			printf("Next Second %ld %ld:%ld \n",(currentTimeVal.tv_sec-oldTimeVal.tv_sec),currentTimeVal.tv_sec,currentTimeVal.tv_usec);
+		      gettimeofday(&oldTimeVal,NULL);
+		}
 	      //check if the time is still valid
 	      if(countera==15){
 			//printf("Current Time %ld  Time End %ld \n",current_time,control.eq2_time_end);
