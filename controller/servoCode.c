@@ -295,9 +295,9 @@ servlet (void *childfd) /* servlet thread */
   unsigned int max7301[5], max7301RX[5];
   unsigned int STS_VEC[5], STS_TEMP_VEC[5];
   unsigned long STS_RET;
+  FILE *fpreadout;
   struct sockaddr_in cliAddr;	/* structure to hold client's address */
-  int cliLen = sizeof (cliAddr);	/* length of address     
-					   //char s[100]; */
+  int cliLen = sizeof (cliAddr);	/* length of address    har s[100]; */
   struct hostent *hostp;	/* client host info */
   char *hostaddrp;
   struct pid_structure status, control_servlet;
@@ -500,6 +500,10 @@ servlet (void *childfd) /* servlet thread */
 	  pthread_mutex_lock (&readout_lock);
 		azZone=readout.azZone;
 	  pthread_mutex_unlock (&readout_lock);
+	  //write the azimuth zone to a text file for reboot purposes:
+	  fpreadout=fopen("azZoneState.txt", "w");
+		fprintf(fpreadout, "Az Zone %d\n",azZone);
+	  fclose(fpreadout);
 	
 	 do
 	    {
