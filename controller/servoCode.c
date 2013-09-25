@@ -204,8 +204,7 @@ unsigned int status_query (unsigned int *return_vec);
 
 //declare the overall PID structure used to pass information between different threads.
 struct pid_structure control;
-
-bool engageServoDrive_=true;
+char engageServoDrive_=1;
 
 int fd, sd_command;
 struct sockaddr_in cliAddr1, remoteServAddr;
@@ -703,12 +702,12 @@ servlet (void *childfd) /* servlet thread */
 	    case 1:
 	  //    printf ("Received engage servo command\n");
 	      clutchbrake (10, STS_VEC);
-	      engageServoDrive_=true;
+	      engageServoDrive_=1;
 	      break;
 	    case 0:
 	   //   printf ("Received disengage servo command\n");
 	      clutchbrake (11, STS_VEC);
-	      engageServoDrive_=false;
+	      engageServoDrive_=0;
 	      break;
 
 	    }
