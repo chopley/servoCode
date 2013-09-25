@@ -297,9 +297,9 @@ servlet (void *childfd) /* servlet thread */
   unsigned int max7301[5], max7301RX[5];
   unsigned int STS_VEC[5], STS_TEMP_VEC[5];
   unsigned long STS_RET;
+  FILE *fpreadout;
   struct sockaddr_in cliAddr;	/* structure to hold client's address */
-  int cliLen = sizeof (cliAddr);	/* length of address     
-					   //char s[100]; */
+  int cliLen = sizeof (cliAddr);	/* length of address    har s[100]; */
   struct hostent *hostp;	/* client host info */
   char *hostaddrp;
   struct pid_structure status, control_servlet;
@@ -436,8 +436,8 @@ servlet (void *childfd) /* servlet thread */
 	}
       else if (!strcmp (commands[0], AEL))
 	{
-//	  printf("AEL command received\n\n");
-  //    		printf ("Received String %s\n", buf);
+	  printf("AEL command received\n\n");
+      		printf ("Received String %s\n", buf);
 	  commandsd[0] = atof (commands[1]);	//az1
 	  commandsd[1] = atof (commands[2]);	//el1
 	  commandsd[2] = atof (commands[3]);	//az2..
@@ -502,6 +502,10 @@ servlet (void *childfd) /* servlet thread */
 	  pthread_mutex_lock (&readout_lock);
 		azZone=readout.azZone;
 	  pthread_mutex_unlock (&readout_lock);
+	  //write the azimuth zone to a text file for reboot purposes:
+	  fpreadout=fopen("azZoneState.txt", "w");
+		fprintf(fpreadout, "Az Zone %d\n",azZone);
+	  fclose(fpreadout);
 	
 	 do
 	    {
@@ -1562,7 +1566,8 @@ control_loop (int pid_handle, struct pid_structure *userspace)
   unsigned int DAC_val;
   double delta_az, delta_alt;
   double prev_azencoderd, prev_altencoderd;
-  time_t current_time;
+  time_t current_time,oldTime;
+  struct timeval oldTimeVal,currentTimeVal;
   unsigned int status_vec[20];
   double az_vel_vec[5], alt_vel_vec[5], az_acc_vec[5], alt_acc_vec[5],
     az_pos_vec[5], alt_pos_vec[5];
@@ -1640,6 +1645,9 @@ control_loop (int pid_handle, struct pid_structure *userspace)
       //initialise the temporary command position doubles
       azimuth_val = loop.azimuth_command_double;
       altitude_val = loop.altitude_command_double;
+      oldTime=0;
+      gettimeofday(&currentTimeVal,NULL);
+      gettimeofday(&oldTimeVal,NULL);
       while (1)
 	{			//probably don't need this while statement anymore? Can just be while(1) ?
 
@@ -1774,6 +1782,11 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 	      tdouble = user.time_struct.tv_usec;
 
 	      time (&current_time);
+	      gettimeofday(&currentTimeVal,NULL);
+		if((currentTimeVal.tv_sec-oldTimeVal.tv_sec)>=1){
+			printf("Next Second %ld %ld:%ld \n",(currentTimeVal.tv_sec-oldTimeVal.tv_sec),currentTimeVal.tv_sec,currentTimeVal.tv_usec);
+		      gettimeofday(&oldTimeVal,NULL);
+		}
 	      //check if the time is still valid
 	      if(countera==15){
 			//printf("Current Time %ld  Time End %ld \n",current_time,control.eq2_time_end);
@@ -1831,7 +1844,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			  		while (azimuth_val > MAX_AZ_VAL_FLOAT)
 			    		{
 			      			azimuth_val -= 360;
-			      			//printf ("reducing AZ VAL %f\n", azimuth_val);
+			      			printf ("reducing AZ VAL %f\n", azimuth_val);
 			    		}
 			  		//printf("Wrap issue\n");
 				}
@@ -1840,7 +1853,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			  		while (azimuth_val < MIN_AZ_VAL_FLOAT)
 			    		{
 			      			azimuth_val += 360;
-			      			//printf ("Increasing az Val %f azimuth_val\n");
+			      			printf ("Increasing az Val %f azimuth_val\n");
 			    		}
 				}
 
@@ -2173,16 +2186,27 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 
 
 
-	readout.instantAzErr = readout.instantCommandAz-loop.azimuth_encoder_double;
-				readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double; 
+readout.instantAzErr = readout.instantCommandAz-loop.azimuth_encoder_double;
+readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
+//f(readout.instantAzErr >180.){
+//readout.instantAzErr=readout.instantAzErr-360.;
+// 
+//	if(azerr_uncorrected >180.){
+//		azerr_uncorrected=azerr_uncorrected-360.;
+//	} 
 		      		
+//	readout.instantAzErr = azerr1;
+//	readout.instantAltErr = alterr1;
+//azerr_uncorrected is the error compared to the actual given command from the control PC- I correct this on the servo to limit accelerations etc.
 	  readoutStructUpdate(azerr_uncorrected,alterr_uncorrected,&readout,&loop,&user); 
+//	  readoutStructUpdate(azerr1,alterr1,&readout,&loop,&user); 
 
 
 
 	  if (countera == 9)
 	    {
-	      //printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf ",pid_return_new[0],velpid_out_az,loop.az_pid1,loop.vel_of_az,loop.kfcoeffs[1]*loop.vel_of_az,aztacho1,azencoder_vel[7],loop.vel_of_alt,azerr1);
+	      printf("Command pos %lf Error %lf\n",loop.azimuth_command_double,azerr1);
+	     // printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf ",pid_return_new[0],velpid_out_az,loop.az_pid1,loop.vel_of_az,loop.kfcoeffs[1]*loop.vel_of_az,aztacho1,azencoder_vel[7],loop.vel_of_alt,azerr1);
 	      //printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf \n",pid_return_new[2],velpid_out_alt,loop.alt_pid1,loop.vel_of_alt,loop.kfcoeffs[3]*loop.vel_of_alt,alttacho1,altencoder_vel[7],loop.vel_of_alt,alterr1);
 	      //printf("Az Encoder Velocity Tacho %d %f %f\n",aztacho[0],loop.vel_of_az,loop.kfcoeffs[0]*loop.vel_of_az);
 

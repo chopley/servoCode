@@ -496,7 +496,8 @@ void sort_azimuth(unsigned int azimuth_encoder,unsigned int azimuth_command,unsi
 			az_temp = az_test[1];
 		}
 	
-		*(correct_azimuth) = az_temp;
+// this is the sorted valueCommented out to experiment with not having sorting		*(correct_azimuth) = az_temp;
+			*(correct_azimuth) = azimuth_command;
 
 
 }
