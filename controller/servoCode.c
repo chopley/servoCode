@@ -205,6 +205,8 @@ unsigned int status_query (unsigned int *return_vec);
 //declare the overall PID structure used to pass information between different threads.
 struct pid_structure control;
 
+bool engageServoDrive_=true;
+
 int fd, sd_command;
 struct sockaddr_in cliAddr1, remoteServAddr;
 //the adaptive control structures for the four motors
@@ -697,10 +699,12 @@ servlet (void *childfd) /* servlet thread */
 	    case 1:
 	  //    printf ("Received engage servo command\n");
 	      clutchbrake (10, STS_VEC);
+	      engageServoDrive_=true;
 	      break;
 	    case 0:
 	   //   printf ("Received disengage servo command\n");
 	      clutchbrake (11, STS_VEC);
+	      engageServoDrive_=false;
 	      break;
 
 	    }
@@ -2330,7 +2334,16 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 
 //printf("PID OUT %ld %ld %ld %ld \n",pid_return_new[0],pid_return_new[1],pid_return_new[2],pid_return_new[3]);
 	  //calculate the data that needs to be written to the DACS. These include a CRC for robustness.
-	  loop.az1_dac_control =
+	  
+	if(!engageServoDrive_){
+		//if the servo drive should be disabled write zero to the servo amplifiers
+		pid_return_new[0]=0;
+		pid_return_new[1]=0;
+		pid_return_new[2]=0;
+		pid_return_new[3]=0;
+	}
+
+	loop.az1_dac_control =
 	    ad5362_crc_pack (XREGISTER_WRITE, CH5, pid_return_new[0]);
 	  loop.az2_dac_control =
 	    ad5362_crc_pack (XREGISTER_WRITE, CH6, pid_return_new[1]);
