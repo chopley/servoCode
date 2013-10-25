@@ -307,7 +307,7 @@ servlet (void *childfd) /* servlet thread */
   int i,stat;
   struct tm *time_ptr;
   time_t timev, time_contactors_engaged;
-
+  volatile  int readoutReleased=0;
 
   /* proc client's requests */
     bzero (buf, 1024);
@@ -367,7 +367,10 @@ servlet (void *childfd) /* servlet thread */
 	  j = 0;
 
 	  pthread_mutex_lock (&readout_lock);
-	  while ((readout.ready != 1) && (j <= 10))
+		  readoutReleased=readout.ready;
+	  pthread_mutex_unlock (&readout_lock);
+
+	  while ((readoutReleased != 1) && (j <= 10))
 	    {
 	      if (j == 10)
 		{
@@ -375,13 +378,17 @@ servlet (void *childfd) /* servlet thread */
 		}
 	      usleep (1000);
 	      j++;
+		  pthread_mutex_lock (&readout_lock);
+			  readoutReleased=readout.ready;
+		  pthread_mutex_unlock (&readout_lock);
 	    }
 
 	  //put together the string to reply with
-	  if (readout.ready == 1)
+	  if (readoutReleased == 1)
 	    {
+		  pthread_mutex_lock (&readout_lock);
 	      sprintf (return_string,
-		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\r",
+		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r",
 		       GIM, readout.az_ready_to_read[0],
 		       readout.az_ready_to_read[1],
 		       readout.az_ready_to_read[2],
@@ -401,42 +408,33 @@ servlet (void *childfd) /* servlet thread */
 		       readout.alt_err_ready_to_read[1],
 		       readout.alt_err_ready_to_read[2],
 		       readout.alt_err_ready_to_read[3],
-		       readout.alt_err_ready_to_read[4]);
-	 /*     printf ("%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
-		       GIM, readout.az_ready_to_read[0],
-		       readout.az_ready_to_read[1],
-		       readout.az_ready_to_read[2],
-		       readout.az_ready_to_read[3],
-		       readout.az_ready_to_read[4],
-		       readout.alt_ready_to_read[0],
-		       readout.alt_ready_to_read[1],
-		       readout.alt_ready_to_read[2],
-		       readout.alt_ready_to_read[3],
-		       readout.alt_ready_to_read[4],
-		       readout.az_err_ready_to_read[0],
-		       readout.az_err_ready_to_read[1],
-		       readout.az_err_ready_to_read[2],
-		       readout.az_err_ready_to_read[3],
-		       readout.az_err_ready_to_read[4],
-		       readout.alt_err_ready_to_read[0],
-		       readout.alt_err_ready_to_read[1],
-		       readout.alt_err_ready_to_read[2],
-		       readout.alt_err_ready_to_read[3],
-		       readout.alt_err_ready_to_read[4]); */
-	      readout.ready = 0;
+		       readout.alt_err_ready_to_read[4],
+			readout.timeuSeconds_ready_to_read[0],
+			readout.timeuSeconds_ready_to_read[1],
+			readout.timeuSeconds_ready_to_read[2],
+			readout.timeuSeconds_ready_to_read[3],
+			readout.timeuSeconds_ready_to_read[4],
+			readout.time_ready_to_read[0],
+			readout.time_ready_to_read[1],
+			readout.time_ready_to_read[2],
+			readout.time_ready_to_read[3],
+			readout.time_ready_to_read[4]);
+		      readout.ready = 0;
+		  pthread_mutex_unlock (&readout_lock);
 	    }
 	  else if (readout.ready != 1)
 	    {
 	      sprintf (return_string, "NODATA,\r");
+	  pthread_mutex_lock (&readout_lock);
 	      readout.ready = 0;
-	    }
 	  pthread_mutex_unlock (&readout_lock);
+	    }
 
 	}
       else if (!strcmp (commands[0], AEL))
 	{
-	  printf("AEL command received\n\n");
-      		printf ("Received String %s\n", buf);
+	//  printf("AEL command received\n\n");
+      //		printf ("Received String %s\n", buf);
 	  commandsd[0] = atof (commands[1]);	//az1
 	  commandsd[1] = atof (commands[2]);	//el1
 	  commandsd[2] = atof (commands[3]);	//az2..
@@ -1783,7 +1781,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 	      time (&current_time);
 	      gettimeofday(&currentTimeVal,NULL);
 		if((currentTimeVal.tv_sec-oldTimeVal.tv_sec)>=1){
-			printf("Next Second %ld %ld:%ld \n",(currentTimeVal.tv_sec-oldTimeVal.tv_sec),currentTimeVal.tv_sec,currentTimeVal.tv_usec);
+//			printf("Next Second %ld %ld:%ld \n",(currentTimeVal.tv_sec-oldTimeVal.tv_sec),currentTimeVal.tv_sec,currentTimeVal.tv_usec);
 		      gettimeofday(&oldTimeVal,NULL);
 		}
 	      //check if the time is still valid
@@ -1816,7 +1814,9 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		  		//loop.altitude_command_double = altitude_val;
 		    		loop.vel_of_az = 0;
 		    		loop.vel_of_alt = 0;
-				printf("Encoder positions not received in time %i %ld %ld\n",i,control.eq2_time_end,control.eq2_time_begin);
+				if( (control.eq2_time_end-control.eq2_time_begin-1)>5){
+					printf("Encoder positions not received in time %i %ld %ld\n",i,control.eq2_time_end,control.eq2_time_begin);
+				}
 			}
 			else
 			{
@@ -1888,52 +1888,52 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		    	
 				
 
-		  	//need the software limit checked to go in this position- it needs to 
-		  	//1. make sure the command encoder values do not go past this zone
-		  	//2. make sure the velocity command is zeroed past this value
-		  	//3. Also (preferably) define a slow zone that should prevent the elevation from going wrong and allow the antenna to be parked at zenith
+				//need the software limit checked to go in this position- it needs to 
+				//1. make sure the command encoder values do not go past this zone
+				//2. make sure the velocity command is zeroed past this value
+				//3. Also (preferably) define a slow zone that should prevent the elevation from going wrong and allow the antenna to be parked at zenith
 
-		  	loop.azimuth_command_double = azimuth_val;
-		  	loop.altitude_command_double = altitude_val;
-		  	//Calculate the velocity of the the commands by using the previous commanded angle and the current
-		  	vel_az = loop.azimuth_command_double - pos_az_past;
-		  	vel_alt = loop.altitude_command_double - pos_alt_past;
+				loop.azimuth_command_double = azimuth_val;
+				loop.altitude_command_double = altitude_val;
+				//Calculate the velocity of the the commands by using the previous commanded angle and the current
+				vel_az = loop.azimuth_command_double - pos_az_past;
+				vel_alt = loop.altitude_command_double - pos_alt_past;
 
-			accel_az=vel_az-vel_az_past;
-			accel_alt=vel_alt-vel_alt_past;
+				accel_az=vel_az-vel_az_past;
+				accel_alt=vel_alt-vel_alt_past;
 //-------------------------------------------------         
 
 
 
-	  //put in maximum accelerations permitted- the enums are defined in telescope_constants.h
-	   if ((accel_az > (double) MAX_AZ_ACCEL / 1000.)
-		   || (accel_az < (double) MIN_AZ_ACCEL / 1000.))
-	    {
-	      printf ("Azimuth Acceleration Limit%f %f %f %f %f\n",loop.azimuth_command_double,pos_az_past,accel_az,vel_az,vel_az_past);
-	      if (accel_az > (double) MAX_AZ_ACCEL / 1000.)
-		{
-		loop.azimuth_command_double = loop.azimuth_command_double-0.01 ;
-		}
-	      else if (accel_az < (double) MIN_AZ_ACCEL / 1000.)
-		{
-		loop.azimuth_command_double = loop.azimuth_command_double+0.01;
-		}
-	    }
+			  //put in maximum accelerations permitted- the enums are defined in telescope_constants.h
+			   if ((accel_az > (double) MAX_AZ_ACCEL / 1000.)
+				   || (accel_az < (double) MIN_AZ_ACCEL / 1000.))
+			    {
+			     // printf ("Azimuth Acceleration Limit%f %f %f %f %f\n",loop.azimuth_command_double,pos_az_past,accel_az,vel_az,vel_az_past);
+			      if (accel_az > (double) MAX_AZ_ACCEL / 1000.)
+				{
+				loop.azimuth_command_double = loop.azimuth_command_double-0.01 ;
+				}
+			      else if (accel_az < (double) MIN_AZ_ACCEL / 1000.)
+				{
+				loop.azimuth_command_double = loop.azimuth_command_double+0.01;
+				}
+			    }
 
 
-	   if ((accel_alt > (double) MAX_ALT_ACCEL / 1000.)
-		   || (accel_alt < (double) MIN_ALT_ACCEL / 1000.))
-	    {
-	      printf ("Altitude Acceleration Limit%f %f %f %f %f\n",loop.altitude_command_double,pos_alt_past,accel_alt,vel_alt,vel_alt_past);
-	      if (accel_alt > (double) MAX_ALT_ACCEL / 1000.)
-		{
-		loop.altitude_command_double -=0.01 ;
-		}
-	      else if (accel_alt < (double) MIN_ALT_ACCEL / 1000.)
-		{
-		loop.altitude_command_double += 0.01;
-		}
-	    }
+			   if ((accel_alt > (double) MAX_ALT_ACCEL / 1000.)
+				   || (accel_alt < (double) MIN_ALT_ACCEL / 1000.))
+			    {
+			      printf ("Altitude Acceleration Limit%f %f %f %f %f\n",loop.altitude_command_double,pos_alt_past,accel_alt,vel_alt,vel_alt_past);
+			      if (accel_alt > (double) MAX_ALT_ACCEL / 1000.)
+				{
+				loop.altitude_command_double -=0.01 ;
+				}
+			      else if (accel_alt < (double) MIN_ALT_ACCEL / 1000.)
+				{
+				loop.altitude_command_double += 0.01;
+				}
+			    }
 	//recalculate the command velocity///
 		  	vel_az = loop.azimuth_command_double - pos_az_past;
 		  	vel_alt = loop.altitude_command_double - pos_alt_past;
@@ -1941,8 +1941,8 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			accel_az=vel_az-vel_az_past;
 			accel_alt=vel_alt-vel_alt_past;
 		  	
-		azimuth_val=loop.azimuth_command_double;
-		  altitude_val=loop.altitude_command_double;
+			azimuth_val=loop.azimuth_command_double;
+		        altitude_val=loop.altitude_command_double;
 //-------------------------------------------------------------------------------       
 
 		  	//if (vel_az > MAX_AZ_POS_SPACE_DEG)
@@ -1956,7 +1956,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		  	loop.vel_of_az = 1000. * vel_az * 100;	//get into mdeg/s
 		  	loop.vel_of_alt = 1000. * vel_alt * 100;	//get into mdeg/s
 
-			}
+		}
 //convert the command position to an encoder position
 		  azalt2encoder (loop.azimuth_command_double, control.delta_az, loop.altitude_command_double,
 				 control.delta_alt, &loop.az_command_long,
@@ -2204,7 +2204,7 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 
 	  if (countera == 9)
 	    {
-	      printf("Command pos %lf Error %lf\n",loop.azimuth_command_double,azerr1);
+	    //  printf("Command pos %lf Error %lf\n",loop.azimuth_command_double,azerr1);
 	     // printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf ",pid_return_new[0],velpid_out_az,loop.az_pid1,loop.vel_of_az,loop.kfcoeffs[1]*loop.vel_of_az,aztacho1,azencoder_vel[7],loop.vel_of_alt,azerr1);
 	      //printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf \n",pid_return_new[2],velpid_out_alt,loop.alt_pid1,loop.vel_of_alt,loop.kfcoeffs[3]*loop.vel_of_alt,alttacho1,altencoder_vel[7],loop.vel_of_alt,alterr1);
 	      //printf("Az Encoder Velocity Tacho %d %f %f\n",aztacho[0],loop.vel_of_az,loop.kfcoeffs[0]*loop.vel_of_az);
@@ -2452,16 +2452,12 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 	  readout->azimuth_time_table[1] = readout->azimuth_time_table[2];
 	  readout->azimuth_time_table[2] = (long) user->time_struct.tv_usec;
 	  //store azimuth positions
-	  readout->azimuth_position_table[0] =
-	    readout->azimuth_position_table[1];
-	  readout->azimuth_position_table[1] =
-	    readout->azimuth_position_table[2];
+	  readout->azimuth_position_table[0] =  readout->azimuth_position_table[1];
+	  readout->azimuth_position_table[1] = readout->azimuth_position_table[2];
 	  readout->azimuth_position_table[2] = loop->azimuth_encoder_double;
 	  //store altitude positions
-	  readout->altitude_position_table[0] =
-	    readout->altitude_position_table[1];
-	  readout->altitude_position_table[1] =
-	    readout->altitude_position_table[2];
+	  readout->altitude_position_table[0] = readout->altitude_position_table[1];
+	  readout->altitude_position_table[1] = readout->altitude_position_table[2];
 	  readout->altitude_position_table[2] = loop->altitude_encoder_double;
 	  //store azimuth errors//
 	  readout->az_pos_err_table[0] = readout->az_pos_err_table[1];
@@ -2497,6 +2493,8 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 		// I did this on 29 March 2013 because there seemed to be a problem with the way the errors were either being caluclated or loaded into the readout_structure
 			readout->az_err_ready_to_read[j] = (float) azerr1 ;
 			readout->alt_err_ready_to_read[j] = (float) alterr1;
+			readout->time_ready_to_read[j]=readout->time[j];
+			readout->timeuSeconds_ready_to_read[j]=readout->timeuSeconds[j];
 		      }
 		    if (readout->ready == 0)
 		      {
@@ -2517,9 +2515,7 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 	pthread_mutex_unlock (&readout_lock);
 
 
-	  if (readout->azimuth_time_table[1] <=
-	      readout->current_value & readout->azimuth_time_table[2] >
-	      readout->current_value)
+	  if (readout->azimuth_time_table[1] <=readout->current_value & readout->azimuth_time_table[2] >readout->current_value)
 	    {
 	      //DO THE AZIMUTH INTERPOLATION FIRST
 	      readout->calc_time[0] = readout->current_value;	//time we want to interpolate to
@@ -2529,53 +2525,38 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 	      readout->calc_time[4] = readout->calc_time[0] - readout->calc_time[1];	//time difference to interpolation point
 	      readout->calc_time[5] = readout->calc_time[4] / readout->calc_time[3];	//fraction of time to interpolation point
 	      //NOw calculate the azimuth positions
-	      readout->calc_time[6] =
-		(double) readout->azimuth_position_table[1];
-	      readout->calc_time[7] =
-		(double) readout->azimuth_position_table[2];
-	      readout->calc_time[8] =
-		readout->calc_time[7] - readout->calc_time[6];
-	      readout->calc_time[9] =
-		readout->calc_time[8] * readout->calc_time[5] +
-		readout->calc_time[6];
+	      readout->calc_time[6] =(double) readout->azimuth_position_table[1];
+	      readout->calc_time[7] =(double) readout->azimuth_position_table[2];
+	      readout->calc_time[8] =readout->calc_time[7] - readout->calc_time[6];
+	      readout->calc_time[9] =readout->calc_time[8] * readout->calc_time[5] +readout->calc_time[6];
 	      readout->az_position[readout->sample_number] = (float) readout->calc_time[9];	//and store the azimuth value
 	      //AND NOW THE ELEVATION INTERPOLATION- WE DON"T NEED TO REDO THE TIME CALCS ONLY THE POSITION
-	      readout->calc_time[6] =
-		(double) readout->altitude_position_table[1];
-	      readout->calc_time[7] =
-		(double) readout->altitude_position_table[2];
-	      readout->calc_time[8] =
-		readout->calc_time[7] - readout->calc_time[6];
-	      readout->calc_time[9] =
-		readout->calc_time[8] * readout->calc_time[5] +
-		readout->calc_time[6];
+	      readout->calc_time[6] =(double) readout->altitude_position_table[1];
+	      readout->calc_time[7] =(double) readout->altitude_position_table[2];
+	      readout->calc_time[8] =readout->calc_time[7] - readout->calc_time[6];
+	      readout->calc_time[9] =readout->calc_time[8] * readout->calc_time[5] + readout->calc_time[6];
 	      readout->alt_position[readout->sample_number] = (float) readout->calc_time[9];	//and store the altitude valu
 	      //AND NOW THE AZIMUTH ERROR INTERPOLATION- 
 	      readout->calc_time[6] = (double) readout->az_pos_err_table[1];
 	      readout->calc_time[7] = (double) readout->az_pos_err_table[2];
-	      readout->calc_time[8] =
-		readout->calc_time[7] - readout->calc_time[6];
-	      readout->calc_time[9] =
-		readout->calc_time[8] * readout->calc_time[5] +
-		readout->calc_time[6];
+	      readout->calc_time[8] =readout->calc_time[7] - readout->calc_time[6];
+	      readout->calc_time[9] =readout->calc_time[8] * readout->calc_time[5] +readout->calc_time[6];
 	      readout->az_pos_err[readout->sample_number] = (float) readout->calc_time[9];	//and store the az err valu
 	      //readout->az_pos_err[readout->sample_number] = (float) azerr1;	//and store the az err valu
 	      //AND FINALLY the ALTITUDE ERROR INTERPOLATION- 
 	      readout->calc_time[6] = (double) readout->alt_pos_err_table[1];
 	      readout->calc_time[7] = (double) readout->alt_pos_err_table[2];
-	      readout->calc_time[8] =
-		readout->calc_time[7] - readout->calc_time[6];
-	      readout->calc_time[9] =
-		readout->calc_time[8] * readout->calc_time[5] +
-		readout->calc_time[6];
+	      readout->calc_time[8] =readout->calc_time[7] - readout->calc_time[6];
+	      readout->calc_time[9] =readout->calc_time[8] * readout->calc_time[5] +readout->calc_time[6];
 	      readout->alt_pos_err[readout->sample_number] = (float) readout->calc_time[9];	//and store the az err valu
 	      //readout->alt_pos_err[readout->sample_number] = (float) alterr1;	//and store the az err valu
 
+	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1381491125;;
+	      readout->timeuSeconds[readout->sample_number] = (long) user->time_struct.tv_usec;
 
 	      readout->sample_number++;	//increment the sample counter
-	      readout->current_value =
-		readout->sample_number * readout->sample_rate;
-	      readout->time[0] = (long) user->time_struct.tv_sec;
+	      readout->current_value =readout->sample_number * readout->sample_rate;
+	//	printf("readout time %d %d %d\n",(long) user->time_struct.tv_sec,user->time_struct.tv_usec,readout->sample_number);
 	    }
 
 } 

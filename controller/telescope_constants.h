@@ -175,6 +175,7 @@ struct readout_struct{
     float az_pos_err[10];
     float alt_pos_err[10];
     long int time[10];
+    long int timeuSeconds[10];
     long azimuth_time_table[10];
     float azimuth_position_table[10];
     float altitude_position_table[10];
@@ -191,6 +192,8 @@ struct readout_struct{
     volatile float alt_ready_to_read[5];
     volatile float az_err_ready_to_read[5];
     volatile float alt_err_ready_to_read[5];
+    volatile int time_ready_to_read[5];
+    volatile int timeuSeconds_ready_to_read[5];
     int volatile ready;
     long samples_per_second;
     int softLimitStatus;	
