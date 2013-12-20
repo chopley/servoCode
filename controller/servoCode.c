@@ -308,7 +308,7 @@ servlet (void *childfd) /* servlet thread */
   struct tm *time_ptr;
   time_t timev, time_contactors_engaged;
   volatile  int readoutReleased=0;
-
+  time_t mytime;
   /* proc client's requests */
     bzero (buf, 1024);
   bzero (return_string, 1024);
@@ -370,22 +370,27 @@ servlet (void *childfd) /* servlet thread */
 		  readoutReleased=readout.ready;
 	  pthread_mutex_unlock (&readout_lock);
 
-	  while ((readoutReleased != 1) && (j <= 10))
-	    {
-	      if (j == 10)
-		{
-		  printf ("GIM Encoder Readout not ready %d-TIMEOUT\n", j);
-		}
-	      usleep (1000);
-	      j++;
-		  pthread_mutex_lock (&readout_lock);
-			  readoutReleased=readout.ready;
-		  pthread_mutex_unlock (&readout_lock);
-	    }
+	//  while ((readoutReleased != 1) && (j <= 10))
+	  //  {
+	    //  if (j == 10)
+	//	{
+	//	mytime = time(NULL);
+	//	printf(ctime(&mytime));
+	//	printf ("GIM Encoder Readout not ready %d-TIMEOUT\n", j);
+	//	}
+	  //    usleep (5000);
+	   //   j++;
+	//	  pthread_mutex_lock (&readout_lock);
+	//		  readoutReleased=readout.ready;
+	//	  pthread_mutex_unlock (&readout_lock);
+	 //   }
 
 	  //put together the string to reply with
 	  if (readoutReleased == 1)
 	    {
+		mytime = time(NULL);
+		printf(ctime(&mytime));
+		printf ("Replying to angle encoder\n");
 		  pthread_mutex_lock (&readout_lock);
 	      sprintf (return_string,
 		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r",
@@ -424,10 +429,8 @@ servlet (void *childfd) /* servlet thread */
 	    }
 	  else if (readout.ready != 1)
 	    {
+		printf("NoDATA\n");
 	      sprintf (return_string, "NODATA,\r");
-	  pthread_mutex_lock (&readout_lock);
-	      readout.ready = 0;
-	  pthread_mutex_unlock (&readout_lock);
 	    }
 
 	}
@@ -1487,7 +1490,7 @@ main (int argc, char *argv[])
   pthread_mutex_init (&readout_lock, NULL);
   //pthread_create(&writer_id, NULL, writer_thread, NULL); 
   //pthread_create(&coordinate_update_id, NULL, coordinate_thread, NULL);
-  pthread_create (&command_id, NULL, command_thread, NULL);
+//  pthread_create (&command_id, NULL, command_thread, NULL);
   pthread_create (&ovro_thread_id, NULL, ovro_thread, NULL);
   printf("Starting the signal handler\n");  
   printf("Started the signal handler\n");
@@ -2445,6 +2448,7 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_struct *readout,volatile struct pid_structure *loop,struct pid_structure *user){ 
 		int j; 
 
+  time_t mytime;
 
 //-----------------PREPARE to interpolate to 5 position /second on a regular interval
 
@@ -2498,6 +2502,9 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 		      }
 		    if (readout->ready == 0)
 		      {
+			mytime = time(NULL);
+			printf(ctime(&mytime));
+			printf("Readout Ready\n");
 			readout->ready = 1;
 		      }
 		    else
