@@ -113,6 +113,7 @@
 
 
 
+int childfd,sd;
 pthread_mutex_t mutexsum;
 pthread_mutex_t pid_coefficients;
 pthread_mutex_t readout_lock;
@@ -161,6 +162,7 @@ void ramp (volatile long *pid_return_old, long *az_pid1, long *az_pid2,
 void sort (double *unsorted, double *sorted, int length);
 
 
+double ppsUnsorted[20],ppsSorted[20];
 
 //function to implement an anti-backlash when tracking. This backlash would be caused by wind. The best way to avoid it is to have one of the motors driving slightly in opposition so as to keep the gear teeth locked on both sides
 int backlash (unsigned int command, unsigned int encoder, double velocity,
@@ -223,8 +225,11 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 //velocity PID loop
 
 void shutdownServo(){
+	extern int childfd,sd;
 	unsigned int STS_VEC[5];
-
+	
+	close(childfd);
+	close(sd);
         printf("Shutting down the Servo\n\n");
 	//turn on the brakes in azimuth
 	clutchbrake (2, STS_VEC);
@@ -389,11 +394,11 @@ servlet (void *childfd) /* servlet thread */
 	  if (readoutReleased == 1)
 	    {
 		mytime = time(NULL);
-		printf(ctime(&mytime));
-		printf ("Replying to angle encoder\n");
+		//printf(ctime(&mytime));
+//		printf ("Replying to angle encoder\n");
 		  pthread_mutex_lock (&readout_lock);
 	      sprintf (return_string,
-		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r",
+		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%ld,%ld\r",
 		       GIM, readout.az_ready_to_read[0],
 		       readout.az_ready_to_read[1],
 		       readout.az_ready_to_read[2],
@@ -424,8 +429,11 @@ servlet (void *childfd) /* servlet thread */
 			readout.time_ready_to_read[2],
 			readout.time_ready_to_read[3],
 			readout.time_ready_to_read[4]);
+			//readout.ppsTime.tv_sec,
+			//readout.ppsTime.tv_usec);
 		      readout.ready = 0;
 		  pthread_mutex_unlock (&readout_lock);
+	//	printf("%s\n",return_string);
 	    }
 	  else if (readout.ready != 1)
 	    {
@@ -760,10 +768,10 @@ void *
 ovro_thread (void *arg)
 {
   //this thread sits on a incoming socket and listens for incoming commands- the commands are held in a common C struct which allows a simple binary transfer of the data to be done on both sides of the connection
-  int sd, rc, n, read_ret, childpid, newsockfd;
+  int rc, n, read_ret, childpid, newsockfd;
   unsigned int cliLen;
   int i, ij;
-  int childfd;
+  extern int childfd,sd;
   struct sockaddr_in cliAddr, servAddr;
   int optval;
   struct hostent *hostp;	/* client host info */
@@ -845,552 +853,6 @@ ovro_thread (void *arg)
   close (sd);
 }
 
-void *
-command_thread (void *arg)
-{ //this is the old control interface thread- We no use the OVRO control thread- this code is deprecated
-  //this thread sits on a incoming socket and listens for incoming commands- the commands are held in a common C struct which allows a simple binary transfer of the data to be done on both sides of the connection
-  int sd, rc, n, read_ret;
-  unsigned int cliLen;
-  int i, ij;
-  unsigned int STS_VEC[5];
-  double RAd, DECd, AZd, ALTd;
-  double azstart, azend, elstart, elend, time;
-  unsigned int AZ_ENCODER, ALT_ENCODER;
-  int childfd;
-  struct sockaddr_in cliAddr, servAddr;
-  int optval;
-  struct hostent *hostp;	/* client host info */
-  char *hostaddrp;
-  struct new_message_parsing_struct tcp_message;
-  int coordinate_type;
-  int length;
-  struct pid_structure controlc;
-  //define the type of communication (tcp) that will be used by the socket
-  sd = socket (AF_INET, SOCK_STREAM, 0);
-  if (sd < 0)
-    {
-      printf (" cannot open socket \n");
-      exit (1);
-    }
-
-  optval = 1;
-  //set the socket options
-  setsockopt (sd, SOL_SOCKET, SO_REUSEADDR,
-	      (const void *) &optval, sizeof (int));
-
-  /*
-   * build the server's Internet address
-   */
-  //make sure that everything is clear in memory.
-  bzero ((char *) &servAddr, sizeof (servAddr));
-
-
-  //begin setting connection options
-  servAddr.sin_family = AF_INET;
-  servAddr.sin_addr.s_addr = htonl (INADDR_ANY);
-  servAddr.sin_port = htons (LOCAL_SERVER_PORT_STRUCT);
-
-
-  //bind to the socket and prepare to listen for incoming communications
-  rc = bind (sd, (struct sockaddr *) &servAddr, sizeof (servAddr));
-  if (rc < 0)
-    {
-      printf (": cannot bind port number %d \n", LOCAL_SERVER_PORT_STRUCT);
-      exit (1);
-    }
-
-  printf (": waiting for COMMAND_THREAD1 data on port TCP %u\n",
-	  LOCAL_SERVER_PORT_STRUCT);
-  //perror("Hello Error\n");
-  while (1)
-    {
-      //listen!!!
-      if (listen (sd, 5) < 0)	/* allow 5 requests to queue up */
-	perror ("ERROR on listen");
-
-      //do necessary housekeeping to set up the communications
-      cliLen = sizeof (cliAddr);
-
-      childfd = accept (sd, (struct sockaddr *) &cliAddr, &cliLen);
-      if (childfd < 0)
-	perror ("ERROR on accept");
-
-      hostp = gethostbyaddr ((const char *) &cliAddr.sin_addr.s_addr,
-			     sizeof (cliAddr.sin_addr.s_addr), AF_INET);
-      if (hostp == NULL)
-	perror ("ERROR on gethostbyaddr");
-      hostaddrp = inet_ntoa (cliAddr.sin_addr);
-      if (hostaddrp == NULL)
-	perror ("ERROR on inet_ntoa\n");
-      printf ("server established connection with %s (%s)\n",
-	      hostp->h_name, hostaddrp);
-
-      //first clear the incoming structure and then receive the binary data into it!
-      bzero (&tcp_message, sizeof (tcp_message));
-      length = 0;
-      while (length < sizeof (tcp_message) && n > 0)
-	{
-	  n = recv (childfd, &tcp_message, sizeof (tcp_message), 0);
-	  if (n < 0)
-	    perror ("ERROR reading from socket");
-	  length = length + n;
-	  printf ("Received %d %d %d\n", n, length, tcp_message.message_size);
-	}
-     //printf ("server received %d bytes: %d\n", n,tcp_message.coordinate_type);
-
-      //n = recvfrom(sd, msg, sizeof(msg), 0, (struct sockaddr *) &cliAddr, &cliLen);
-
-      printf ("Received Structure %d\n", sizeof (tcp_message));
-      n =
-	send (childfd, &tcp_message.message_size,
-	      sizeof (tcp_message.message_size), 0);
-      if (n < 0)
-	perror ("ERROR writing to socket");
-      printf ("Returned %d Bytes to the control program\n", n);
-      if (n != sizeof (tcp_message.message_size))
-	{
-	  printf ("Error with Message Size %d\n", n);
-	}
-      ioctl (fd, DEV_IOCTL_READ_CONTROL_STRUCTURE, &controlc);
-      coordinate_type = tcp_message.coordinate_type;
-      printf ("Coordinate Type %d\n", coordinate_type);
-      switch (coordinate_type)
-	{
-	  //now we simply go through- decide the type of command and take appropriate action making sure to use mutexex to prevent conflicting variable updates
-	case HORIZONTAL:
-	  //an azimuth/elevation command is given
-	  printf ("yippee HORIZONTAL Updated\n");
-	  //commands[0] = atof(command_string1);
-	  //commands[1] = atof(command_string2);
-	  //coordinate_type_extra = HORIZONTAL;
-	  AZd = tcp_message.fcommand_vals[0];
-	  ALTd = tcp_message.fcommand_vals[1];
-	  printf ("AZ %f ALT %f\n", AZd, ALTd);
-	  pthread_mutex_lock (&mutexsum);
-	  //read_ret = read(fd,&control,sizeof(control));
-
-	  control.AZ_double = AZd;
-	  control.ALT_double = ALTd;
-	  control.coordinate_command_type = coordinate_type;
-	  //read_ret = write(fd,&control,sizeof(control));
-	  pthread_mutex_unlock (&mutexsum);
-	  break;
-	case EQUATORIAL:
-	  //a RA/DEC command is given- this should be used sparingly as the onboard RA/DEC->ALT/AZ is slow due to the lack of floating point unit
-	  printf ("yippee EQUATORIAL\n");
-	  //commands[0] = atof(command_string1);
-	  //commands[1] = atof(command_string2);
-	  //coordinate_type_extra = EQUATORIAL;
-	  RAd = tcp_message.fcommand_vals[0];
-	  DECd = tcp_message.fcommand_vals[1];
-	  printf ("RA %f DEC %f\n", RAd, DECd);
-	  pthread_mutex_lock (&mutexsum);
-	  //read_ret = read(fd,&control,sizeof(control));
-	  control.RA_double = RAd;
-	  control.DEC_double = DECd;
-	  control.coordinate_command_type = coordinate_type;
-	  //read_ret = write(fd,&control,sizeof(control));        
-	  pthread_mutex_unlock (&mutexsum);
-	  break;
-
-
-
-	case EQUATORIAL2:
-	  //This uses a set of second order polynomial coefficients to update the required ALT/AZ- these are calculated by the high level control PC and uploaded onto the ARM to allow quicker calculation of the appropriate ALT/AZ command angles
-	  printf ("yippee EQUATORIAL2\n");
-	  //int_commands[0] = atoi(command_string1); //Tend
-	  //int_commands[1] = atoi(command_string2); //T0
-	  //coordinate_type_extra = EQUATORIAL;   
-	  //int_commands[2] = atoi(command_string3);//Length
-	  //commands[0] = atof(command_string4); //a1
-	  //commands[1] = atof(command_string5); //a2
-	  //commands[2] = atof(command_string6); //a3
-	  //commands[3] = atof(command_string7); //a4
-	  //commands[4] = atof(command_string8); //b1
-	  //commands[5] = atof(command_string9); //b2
-	  //commands[6] = atof(command_string10); //b3
-	  //commands[7] = atof(command_string11); //b4
-
-	  printf ("Tend %d T0 %d Length %d\n", tcp_message.lcommand_vals[0],
-		  tcp_message.lcommand_vals[1], tcp_message.command_vals[0]);
-	  printf ("a0 %lf a1 %lf a2 %lf a3 %lf b1 %lf b2 %lf b3 %lf b4 %lf\n",
-		  tcp_message.fcommand_vals[0], tcp_message.fcommand_vals[1],
-		  tcp_message.fcommand_vals[2], tcp_message.fcommand_vals[3],
-		  tcp_message.fcommand_vals[4], tcp_message.fcommand_vals[5],
-		  tcp_message.fcommand_vals[6], tcp_message.fcommand_vals[7]);
-
-
-
-	  pthread_mutex_lock (&mutexsum);
-	  //read_ret = read(fd,&control,sizeof(control));
-	  control.a[0] = tcp_message.fcommand_vals[0];
-	  control.a[1] = tcp_message.fcommand_vals[1];
-	  control.a[2] = tcp_message.fcommand_vals[2];
-	  control.a[3] = tcp_message.fcommand_vals[3];
-	  control.b[0] = tcp_message.fcommand_vals[4];
-	  control.b[1] = tcp_message.fcommand_vals[5];
-	  control.b[2] = tcp_message.fcommand_vals[6];
-	  control.b[3] = tcp_message.fcommand_vals[7];
-	  //control.b[0]=tcp_message.dcommand_vals[8];
-	  control.eq2_time_end = tcp_message.lcommand_vals[0];
-	  control.eq2_time_begin = tcp_message.lcommand_vals[1];
-	  control.coordinate_command_type = coordinate_type;
-	  pthread_mutex_unlock (&mutexsum);
-	  time = tcp_message.command_vals[0];
-	  azstart = control.a[0];
-	  azend = control.a[0] + time * (control.a[1] + time * control.a[2]);
-	  elstart = control.b[0];
-	  elend = control.b[0] + time * (control.b[1] + time * control.b[2]);
-	  //calculate the speed to display for user
-	  printf
-	    ("Azimuth Start : %5.2f End : %5.2f Distance : %5.2f Velocity : %5.2f \nElevation Start : %5.2f End : %5.2f Distance : %5.2f Velocity : %5.2f\n",
-	     azstart, azend, azend - azstart, (azend - azstart) / time,
-	     elstart, elend, elend - elstart, (elend - elstart) / time);
-	  break;
-
-	case HORIZONTAL_LIST:
-	  printf ("Horizontal Time Series control positions\n");
-	  pthread_mutex_lock (&mutexsum);
-	  //check if the data has come through successfully
-	  if (tcp_message.lcommand_vals[0] > 0)
-	    {
-	      control.eq2_time_end = tcp_message.lcommand_vals[0];
-	      control.eq2_time_begin = tcp_message.lcommand_vals[1];
-	      control.coordinate_command_type = coordinate_type;
-	      for (i = 0; i < control.eq2_time_end - control.eq2_time_begin;
-		   i++)
-		{
-		  command.comaz[i] = tcp_message.az_commands[i];
-		  command.comalt[i] = tcp_message.alt_commands[i];
-		}
-	    }
-	  else
-	    {
-	      printf ("Failed to get command positions from packet\n");
-	    }
-	  pthread_mutex_unlock (&mutexsum);
-	  for (i = 0; i < 5; i++)
-	    {
-	      printf ("i = %d Az %f %f Alt %f %f %ld %ld\n", i,
-		      command.comaz[i], tcp_message.az_commands[i],
-		      command.comalt[i], tcp_message.alt_commands[i],
-		      control.eq2_time_end, control.eq2_time_begin);
-	    }
-	  break;
-
-	case ENCODER_COORDS:
-	  //very low level to allow driving antenna to a specific angle encoder positions (i.e uses 16bit number)
-	  printf ("Encoder Coordinate\n");
-	  //commands[0] = atof(command_string1);
-	  //commands[1] = atof(command_string2);
-	  //coordinate_type_extra = ENCODER_COORDS;
-
-	  AZ_ENCODER = tcp_message.command_vals[0];
-	  ALT_ENCODER = tcp_message.command_vals[1];
-	  pthread_mutex_lock (&mutexsum);
-	  //read_ret = read(fd,&control,sizeof(control));
-	  control.az_command_long = AZ_ENCODER;
-	  control.alt_command_long = ALT_ENCODER;
-	  //azalt2encoder(azimuth_val,control.delta_az, altitude_val,control.delta_alt, &control.az_command_long, &control.alt_command_long);
-
-	  //control.AZ_double=AZd;
-	  //control.ALT_double=ALTd;
-	  control.coordinate_command_type = coordinate_type;
-	  //read_ret = write(fd,&control,sizeof(control));
-	  pthread_mutex_unlock (&mutexsum);
-	  break;
-
-	case AZ1_PID_COEFFICIENTS_ADAPTIVE:
-	  //updated the AZ1 pid coefficients with a table of pid values which can be changed at different error values
-
-	  pthread_mutex_lock (&pid_coefficients);
-	  printf ("Adaptive AZ1 PID coefficient update\n");
-	  printf ("%f %f %f %d\n", tcp_message.pid_vals.i[0],
-		  tcp_message.pid_vals.d[0], azimuth_pid1.table_length);
-	  azimuth_pid1 = tcp_message.pid_vals;
-	  printf ("AZ1 Length %d\n", azimuth_pid1.table_length);
-	  azimuth_pid1.adaptive = 1;
-	  i = 0;
-	  while (i < azimuth_pid1.table_length)
-	    {
-	      printf ("Az %d %f %f %f kf %f vf %f %d %d %f %f %f\n",
-		      azimuth_pid1.position_error[i], azimuth_pid1.p[i],
-		      azimuth_pid1.i[i], azimuth_pid1.d[i],
-		      azimuth_pid1.kf[i], azimuth_pid1.vf[i],
-		      azimuth_pid1.motor_plus[i], azimuth_pid1.motor_minus[i],
-		      azimuth_pid1.p_2[i], azimuth_pid1.i_2[i],
-		      azimuth_pid1.d_2[i]);
-	      i++;
-	    }
-	  pthread_mutex_unlock (&pid_coefficients);
-
-	  break;
-
-	case AZ2_PID_COEFFICIENTS_ADAPTIVE:
-	  pthread_mutex_lock (&pid_coefficients);
-	  printf ("Adaptive AZ2 PID coefficient update\n");
-	  printf ("%f %f %f %d\n", tcp_message.pid_vals.i[0],
-		  tcp_message.pid_vals.d[0],
-		  tcp_message.pid_vals.table_length);
-	  azimuth_pid2 = tcp_message.pid_vals;
-	  azimuth_pid2.adaptive = 1;
-	  i = 0;
-	  while (i < azimuth_pid2.table_length)
-	    {
-	      printf ("Az %d %f %f %f kf %f vf %f %d %d %f %f %f\n",
-		      azimuth_pid2.position_error[i], azimuth_pid2.p[i],
-		      azimuth_pid2.i[i], azimuth_pid2.d[i],
-		      azimuth_pid2.kf[i], azimuth_pid2.vf[i],
-		      azimuth_pid2.motor_plus[i], azimuth_pid2.motor_minus[i],
-		      azimuth_pid2.p_2[i], azimuth_pid2.i_2[i],
-		      azimuth_pid2.d_2[i]);
-	      i++;
-	    }
-	  pthread_mutex_unlock (&pid_coefficients);
-
-
-	  break;
-
-	case ALT1_PID_COEFFICIENTS_ADAPTIVE:
-	  pthread_mutex_lock (&pid_coefficients);
-	  printf ("Adaptive ALT1 PID coefficient update\n");
-	  printf ("%f %f %f %d\n", tcp_message.pid_vals.i[0],
-		  tcp_message.pid_vals.d[0],
-		  tcp_message.pid_vals.table_length);
-	  altitude_pid1 = tcp_message.pid_vals;
-	  altitude_pid1.adaptive = 1;
-	  i = 0;
-	  while (i < altitude_pid1.table_length)
-	    {
-	      printf ("Alt1pid_ad %d %f %f %f kf %f vf %f %d %d %f %f %f\n",
-		      altitude_pid1.position_error[i], altitude_pid1.p[i],
-		      altitude_pid1.i[i], altitude_pid1.d[i],
-		      altitude_pid1.kf[i], altitude_pid1.vf[i],
-		      altitude_pid1.motor_plus[i],
-		      altitude_pid1.motor_minus[i], altitude_pid1.p_2[i],
-		      altitude_pid1.i_2[i], altitude_pid1.d_2[i]);
-	      i++;
-	    }
-	  pthread_mutex_unlock (&pid_coefficients);
-
-	  break;
-
-	case ALT2_PID_COEFFICIENTS_ADAPTIVE:
-	  pthread_mutex_lock (&pid_coefficients);
-	  printf ("Adaptive ALT2 PID coefficient update\n");
-	  printf ("%f %f %f %d\n", tcp_message.pid_vals.i[0],
-		  tcp_message.pid_vals.d[0],
-		  tcp_message.pid_vals.table_length);
-	  altitude_pid2 = tcp_message.pid_vals;
-	  altitude_pid2.adaptive = 1;
-	  i = 0;
-	  while (i < altitude_pid2.table_length)
-	    {
-	      printf ("Alt2 %d %f %f %f kf %f vf %f %d %d %f %f %f\n",
-		      altitude_pid2.position_error[i], altitude_pid2.p[i],
-		      altitude_pid2.i[i], altitude_pid2.d[i],
-		      altitude_pid2.kf[i], altitude_pid2.vf[i],
-		      altitude_pid2.motor_plus[i],
-		      altitude_pid2.motor_minus[i], altitude_pid2.p_2[i],
-		      altitude_pid2.i_2[i], altitude_pid2.d_2[i]);
-	      i++;
-	    }
-	  pthread_mutex_unlock (&pid_coefficients);
-
-
-	  break;
-
-
-	case AZ1_PID_COEFFICIENTS:
-	  //non-dynamic pid coefficients
-	  printf ("PID AZ 1 Command Encoder Coordinate\n");
-	  //commands[0] = atof(command_string1);
-	  //commands[1] = atof(command_string2);
-	  //coordinate_type_extra = AZ1_PID_COEFFICIENTS;
-	  pthread_mutex_lock (&mutexsum);
-	  //read_ret = read(fd,&control,sizeof(control));
-	  control.pcoeffs[0] = tcp_message.fcommand_vals[0];
-	  control.icoeffs[0] = tcp_message.fcommand_vals[1];
-	  control.dcoeffs[0] = tcp_message.fcommand_vals[2];
-	  control.motor_plus[0] = tcp_message.command_vals[0];
-	  control.motor_minus[0] = tcp_message.command_vals[1];
-	  control.update = 1;
-	  pthread_mutex_lock (&pid_coefficients);
-	  azimuth_pid1.adaptive = 0;
-	  pthread_mutex_unlock (&pid_coefficients);
-	  //      control.coordinate_command_type=coordinate_type;
-	  printf ("P %f I %f D %f M+ %ld M- %ld\n", control.pcoeffs[0],
-		  control.icoeffs[0], control.dcoeffs[0],
-		  control.motor_plus[0], control.motor_minus[0]);
-	  //read_ret = write(fd,&control,sizeof(control));
-	  pthread_mutex_unlock (&mutexsum);
-	  break;
-
-	case AZ2_PID_COEFFICIENTS:
-	  printf ("PID AZ 2 Command Encoder Coordinate\n");
-	  //commands[0] = atof(command_string1);
-	  //commands[1] = atof(command_string2);
-	  //coordinate_type_extra = AZ2_PID_COEFFICIENTS;
-	  pthread_mutex_lock (&mutexsum);
-	  //    read_ret = read(fd,&control,sizeof(control));
-	  control.pcoeffs[1] = tcp_message.fcommand_vals[0];
-	  control.icoeffs[1] = tcp_message.fcommand_vals[1];
-	  control.dcoeffs[1] = tcp_message.fcommand_vals[2];
-	  control.motor_plus[1] = tcp_message.command_vals[0];
-	  control.motor_minus[1] = tcp_message.command_vals[1];
-	  //    control.coordinate_command_type=coordinate_type;
-	  control.update = 1;
-	  pthread_mutex_lock (&pid_coefficients);
-	  azimuth_pid2.adaptive = 0;
-	  pthread_mutex_unlock (&pid_coefficients);
-	  printf ("P %f I %f D %f M+ %ld M- %ld\n", control.pcoeffs[1],
-		  control.icoeffs[1], control.dcoeffs[1],
-		  control.motor_plus[1], control.motor_minus[1]);
-	  //read_ret = write(fd,&control,sizeof(control));
-	  //read_ret = write(fd,&control,sizeof(control));
-	  pthread_mutex_unlock (&mutexsum);
-	  break;
-
-	case ALT1_PID_COEFFICIENTS:
-	  printf ("PID ALT 1 Command Encoder Coordinate\n");
-	  //commands[0] = atof(command_string1);
-	  //commands[1] = atof(command_string2);
-	  //coordinate_type_extra = ALT1_PID_COEFFICIENTS;
-	  pthread_mutex_lock (&mutexsum);
-	  //read_ret = read(fd,&control,sizeof(control));
-	  control.pcoeffs[2] = tcp_message.fcommand_vals[0];
-	  control.icoeffs[2] = tcp_message.fcommand_vals[1];
-	  control.dcoeffs[2] = tcp_message.fcommand_vals[2];
-	  control.motor_plus[2] = tcp_message.command_vals[0];
-	  control.motor_minus[2] = tcp_message.command_vals[1];
-	  control.update = 1;
-	  pthread_mutex_lock (&pid_coefficients);
-	  altitude_pid1.adaptive = 0;
-	  pthread_mutex_unlock (&pid_coefficients);
-	  //      control.coordinate_command_type=coordinate_type;
-	  printf ("P %f I %f D %f M+ %ld M- %ld\n", control.pcoeffs[2],
-		  control.icoeffs[2], control.dcoeffs[2],
-		  control.motor_plus[2], control.motor_minus[2]);
-	  //read_ret = write(fd,&control,sizeof(control));
-	  //read_ret = write(fd,&control,sizeof(control));
-	  pthread_mutex_unlock (&mutexsum);
-	  break;
-
-	case ALT2_PID_COEFFICIENTS:
-	  printf ("PID ALT 2 Command Encoder Coordinate\n");
-	  //commands[0] = atof(command_string1);
-	  //commands[1] = atof(command_string2);
-	  //coordinate_type_extra = ALT2_PID_COEFFICIENTS;
-	  pthread_mutex_lock (&mutexsum);
-	  //read_ret = read(fd,&control,sizeof(control));
-	  control.pcoeffs[3] = tcp_message.fcommand_vals[0];
-	  control.icoeffs[3] = tcp_message.fcommand_vals[1];
-	  control.dcoeffs[3] = tcp_message.fcommand_vals[2];
-	  control.motor_plus[3] = tcp_message.command_vals[0];
-	  control.motor_minus[3] = tcp_message.command_vals[1];
-	  control.update = 1;
-	  pthread_mutex_lock (&pid_coefficients);
-	  altitude_pid2.adaptive = 1;
-	  pthread_mutex_unlock (&pid_coefficients);
-	  //      control.coordinate_command_type=coordinate_type;
-	  printf ("P %f I %f D %f M+ %ld M- %ld\n", control.pcoeffs[3],
-		  control.icoeffs[3], control.dcoeffs[3],
-		  control.motor_plus[3], control.motor_minus[3]);
-	  //read_ret = write(fd,&control,sizeof(control));
-	  //read_ret = write(fd,&control,sizeof(control));
-	  pthread_mutex_unlock (&mutexsum);
-	  break;
-
-	case IOCTL_COMMANDS:
-	  //handles IO control commands to various hardware devices- these are defined in pid.h
-	  printf ("IOCTL COMMAND %04x\n");
-	  //      pthread_mutex_lock (&mutexsum);
-//              read_ret = read(fd,&control,sizeof(control));
-	  //read_ret = read(fd,&control,sizeof(control));
-	  //printf("Change DAC State\n");
-	  //printf("Control.DAC_Output = %d\n",control.DAC_Output);
-	  //control.DAC_Output = atoi(command_string1);
-
-	  ioctl (fd, tcp_message.command_vals[0], &controlc);
-	  //      printf("Control.DAC_Output = %d\n",control.DAC_Output);
-	  //read_ret = read(fd,&control,sizeof(control));
-	  //      printf("Control.DAC_Output = %d\n",control.DAC_Output);
-	  //      pthread_mutex_unlock (&mutexsum);
-	  break;
-
-	case SAFE_DRIVE_LIMITS:
-	  printf ("Change the Safety Zone Drive Limits\n");
-	  pthread_mutex_lock (&mutexsum);
-	  control.limits[0] = tcp_message.command_vals[0];
-	  control.limits[1] = tcp_message.command_vals[1];
-	  control.limits[2] = tcp_message.command_vals[2];
-	  control.limits[3] = tcp_message.command_vals[3];
-	  control.update = 1;
-	  //control.coordinate_command_type=coordinate_type;
-	  pthread_mutex_unlock (&mutexsum);
-	  break;
-
-	case CONTACTORS:
-	  //int_commands[0] = atoi(command_string1);
-	  printf ("WORK WITH CONTACTORS %d\n", tcp_message.command_vals[0]);
-
-	  contactors (tcp_message.command_vals[0]);
-	  break;
-
-	case CLUTCHBRAKE:
-	  //int_commands[0] = atoi(command_string1);
-	  printf ("WORK WITH CLUTCHBRAKE %d\n", tcp_message.command_vals[0]);
-	  printf
-	    ("Disabling DAC Since working with Contactors- must be restarted Manually\n");
-	  ioctl (fd, DEV_IOCTL_DISABLE_DAC, &controlc);
-	  clutchbrake (tcp_message.command_vals[0], STS_VEC);
-	  break;
-
-	default:
-	  printf ("Failed to get correct case here\n");
-	  break;
-
-	}
-
-
-
-
-//      pthread_mutex_lock (&mutexsum);
-
-      pthread_mutex_lock (&mutexsum);
-
-
-
-
-
-
-//      read_ret = write(fd,&controlc,sizeof(controlc));
-
-
-
-      printf ("regoing through thread control.coordinate_command_type %d\n",
-	      control.coordinate_command_type);
-      printf ("RA %f DEC %f AZ %f ALT %f %d %d\n", RAd, DECd, AZd, ALTd,
-	      control.az_command_long, control.alt_command_long);
-      pthread_mutex_unlock (&mutexsum);
-      printf ("server closing connection with %s (%s) %u\n",
-	      hostp->h_name, hostaddrp, LOCAL_SERVER_PORT_STRUCT);
-
-
-      close (childfd);
-      printf ("server closed connection with %s (%s) %u\n",
-	      hostp->h_name, hostaddrp, LOCAL_SERVER_PORT_STRUCT);
-
-    }
-  printf ("Outside loop in the Command_thread\n");
-
-
-
-
-
-
-};
-
 int
 main (int argc, char *argv[])
 {
@@ -1408,6 +870,7 @@ main (int argc, char *argv[])
   struct hostent *h;
   int read_ret, rc, i;
   unsigned int DAC_VAL;
+  extern int fd;
 
   fd = open ("/dev/pid", O_RDWR);
   if (fd == -1)
@@ -1697,9 +1160,11 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 	accel_alt_past=accel_alt;
 	  //read from the kernel
 
-	  read_ret = read (fd, &user, sizeof (user));	//THIS IS WHERE THE TICK INTERVAL IS IMPLEMENTED. The kernel blocks the read and this is released by an onboard timer overflow interrupt routine. This gives an consistent timing mechanism to the pid control loop.
+	  read_ret = read (fd2, &user, sizeof (user));	//THIS IS WHERE THE TICK INTERVAL IS IMPLEMENTED. The kernel blocks the read and this is released by an onboard timer overflow interrupt routine. This gives an consistent timing mechanism to the pid control loop.
 	  //tacho offsets as there is a slight negative bias here!
 
+
+	 // printf("PPS TIME %ld %ld \n",user.ppsTime.tv_sec,user.ppsTime.tv_usec);
 	  //user.tacho1+=88;
 	  //user.tacho2+=41;
 	  //user.tacho3+=62;
@@ -1789,7 +1254,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		}
 	      //check if the time is still valid
 	      if(countera==15){
-			//printf("Current Time %ld  Time End %ld \n",current_time,control.eq2_time_end);
+//			printf("Current Time %ld  Time End %ld \n",current_time,control.eq2_time_end);
 		}
 	      if (current_time <= control.eq2_time_end)
 		{
@@ -1828,7 +1293,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 		      		temporary_double[1] = altitude_val;
 		      		//correct for maximum allowable command speeds
 		      			if(countera==20){
-						//printf("command %f %f \n",command.comaz[i],command.comaz[i+1]);
+				//		printf("command %f %f \n",command.comaz[i],command.comaz[i+1]);
 					}
 					
 				azimuth_val =
@@ -1872,12 +1337,12 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 				if(azimuth_val > (temporary_double[0] + MAX_AZ_POS_SPACE_DEG/100.)){
 		      		//	printf("Speed limit az positive Initial new AZ %f ",azimuth_val);
 		      		 	azimuth_val = temporary_double[0] + MAX_AZ_POS_SPACE_DEG/100. ;
-		      		//	printf("Corrected new AZ %f \n",azimuth_val);
+		      	//		printf("Too fast-Speed limit Corrected new AZ %f \n",azimuth_val);
 		      		}
 		      		if(azimuth_val < (temporary_double[0] + MIN_AZ_POS_SPACE_DEG/100.)){
 			      	//	printf("Speed limit az positive Initial new AZ %f ",azimuth_val);
 			      		azimuth_val = temporary_double[0] + MIN_AZ_POS_SPACE_DEG/100. ;
-			      	//	printf("Corrected new AZ %f \n",azimuth_val);
+			  //    		printf("Too-slow Speed limit Corrected new AZ %f \n",azimuth_val);
 		      		}
 		      		if(altitude_val > (temporary_double[1] + MAX_ALT_POS_SPACE_DEG/100.)){
 		      			altitude_val = temporary_double[1] + MAX_ALT_POS_SPACE_DEG/100.; 
@@ -1912,14 +1377,14 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			   if ((accel_az > (double) MAX_AZ_ACCEL / 1000.)
 				   || (accel_az < (double) MIN_AZ_ACCEL / 1000.))
 			    {
-			     // printf ("Azimuth Acceleration Limit%f %f %f %f %f\n",loop.azimuth_command_double,pos_az_past,accel_az,vel_az,vel_az_past);
+			      printf ("Azimuth Acceleration Limit%f %f %f %f %f\n",loop.azimuth_command_double,pos_az_past,accel_az,vel_az,vel_az_past);
 			      if (accel_az > (double) MAX_AZ_ACCEL / 1000.)
 				{
-				loop.azimuth_command_double = loop.azimuth_command_double-0.01 ;
+				loop.azimuth_command_double = loop.azimuth_command_double ;
 				}
 			      else if (accel_az < (double) MIN_AZ_ACCEL / 1000.)
 				{
-				loop.azimuth_command_double = loop.azimuth_command_double+0.01;
+				loop.azimuth_command_double = loop.azimuth_command_double;
 				}
 			    }
 
@@ -2073,7 +1538,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 				 &azerr1, &loop.az_ic1, &loop.az_pid1);
 	      pid_return_new[0] = loop.az_pid1;
 	      pid_return_new[1] = 0.5 * loop.az_pid1;
-	      aztacho[0] = (long) aztacho1;	//use the low velocity value from the ADC i.e channel 1
+	      aztacho[0] = (long) aztacho2;	//use the low velocity value from the ADC i.e channel 1
 	      kfa_azimuth = loop.vfcoeffs[0];
 	      velocity_pid (aztacho[0], (double) loop.az_pid1, azerr1,
 			    kfa_azimuth, loop.pcoeffs_vel[0],
@@ -2082,7 +1547,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			    &loop.az_ic1_vel, &velpid_out_az, &loop.az_pid1);
 	      pid_return_new[0] = loop.az_pid1;
 	      pid_return_new[1] = 0.5 * loop.az_pid1;
-
+	//	printf("Slow Zone\n");
 
 	      break;
 
@@ -2207,7 +1672,7 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 
 	  if (countera == 9)
 	    {
-	    //  printf("Command pos %lf Error %lf\n",loop.azimuth_command_double,azerr1);
+	      printf("Command pos %lf Error  %lf Vel %lf %d %d %f\n",loop.azimuth_command_double,azerr1,loop.vel_of_az,aztacho1,aztacho2,pos_az_dot);
 	     // printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf ",pid_return_new[0],velpid_out_az,loop.az_pid1,loop.vel_of_az,loop.kfcoeffs[1]*loop.vel_of_az,aztacho1,azencoder_vel[7],loop.vel_of_alt,azerr1);
 	      //printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf \n",pid_return_new[2],velpid_out_alt,loop.alt_pid1,loop.vel_of_alt,loop.kfcoeffs[3]*loop.vel_of_alt,alttacho1,altencoder_vel[7],loop.vel_of_alt,alterr1);
 	      //printf("Az Encoder Velocity Tacho %d %f %f\n",aztacho[0],loop.vel_of_az,loop.kfcoeffs[0]*loop.vel_of_az);
@@ -2449,33 +1914,46 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 		int j; 
 
   time_t mytime;
+	int ppsUSeconds;
 
 //-----------------PREPARE to interpolate to 5 position /second on a regular interval
 
 	  readout->azimuth_time_table[0] = readout->azimuth_time_table[1];
 	  readout->azimuth_time_table[1] = readout->azimuth_time_table[2];
-	  readout->azimuth_time_table[2] = (long) user->time_struct.tv_usec;
+	  readout->azimuth_time_table[2] = readout->azimuth_time_table[3];
+	  readout->azimuth_time_table[3] = readout->azimuth_time_table[4];
+	  readout->azimuth_time_table[4] = (long) user->time_struct.tv_usec;
 	  //store azimuth positions
 	  readout->azimuth_position_table[0] =  readout->azimuth_position_table[1];
 	  readout->azimuth_position_table[1] = readout->azimuth_position_table[2];
-	  readout->azimuth_position_table[2] = loop->azimuth_encoder_double;
+	  readout->azimuth_position_table[2] =  readout->azimuth_position_table[3];
+	  readout->azimuth_position_table[3] = readout->azimuth_position_table[4];
+	  readout->azimuth_position_table[4] = loop->azimuth_encoder_double;
 	  //store altitude positions
 	  readout->altitude_position_table[0] = readout->altitude_position_table[1];
 	  readout->altitude_position_table[1] = readout->altitude_position_table[2];
-	  readout->altitude_position_table[2] = loop->altitude_encoder_double;
+	  readout->altitude_position_table[2] = readout->altitude_position_table[3];
+	  readout->altitude_position_table[3] = readout->altitude_position_table[4];
+	  readout->altitude_position_table[4] = loop->altitude_encoder_double;
 	  //store azimuth errors//
 	  readout->az_pos_err_table[0] = readout->az_pos_err_table[1];
 	  readout->az_pos_err_table[1] = readout->az_pos_err_table[2];
-	  readout->az_pos_err_table[2] = azerr1;
+	  readout->az_pos_err_table[2] = readout->az_pos_err_table[3];
+	  readout->az_pos_err_table[3] = readout->az_pos_err_table[4];
+	  readout->az_pos_err_table[4] = azerr1;
 		//store azimuth elevation//
 	  readout->alt_pos_err_table[0] = readout->alt_pos_err_table[1];
 	  readout->alt_pos_err_table[1] = readout->alt_pos_err_table[2];
-	  readout->alt_pos_err_table[2] = alterr1;
+	  readout->alt_pos_err_table[2] = readout->alt_pos_err_table[3];
+	  readout->alt_pos_err_table[3] = readout->alt_pos_err_table[4];
+	  readout->alt_pos_err_table[4] = alterr1;
 
 
 	  //correct for rollover
-	  if (readout->azimuth_time_table[2] < readout->azimuth_time_table[1])
+	  if (readout->azimuth_time_table[4] < readout->azimuth_time_table[3])
 	    {
+	      readout->azimuth_time_table[3] -= 1000000;
+	      readout->azimuth_time_table[2] -= 1000000;
 	      readout->azimuth_time_table[1] -= 1000000;
 	      readout->azimuth_time_table[0] -= 1000000;
 	    }
@@ -2483,6 +1961,10 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 	  //at the end of the second move the data to the ready to read section
 
 	pthread_mutex_lock (&readout_lock);
+		
+
+		readout->ppsTime.tv_sec=user->ppsTime.tv_sec;	
+		readout->ppsTime.tv_usec=user->ppsTime.tv_usec;	
 		readout->instantAzErr = (float) azerr1;	//store for instantaneous errors
 		readout->instantAltErr = (float) alterr1;	//store for instantaneous errors
 		readout->azZone = (int) user->azimuth_zone;
@@ -2503,8 +1985,8 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 		    if (readout->ready == 0)
 		      {
 			mytime = time(NULL);
-			printf(ctime(&mytime));
-			printf("Readout Ready\n");
+	//		printf(ctime(&mytime));
+	//		printf("Readout Ready\n");
 			readout->ready = 1;
 		      }
 		    else
@@ -2522,45 +2004,55 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 	pthread_mutex_unlock (&readout_lock);
 
 
-	  if (readout->azimuth_time_table[1] <=readout->current_value & readout->azimuth_time_table[2] >readout->current_value)
+	  if (readout->azimuth_time_table[2] <=readout->current_value & readout->azimuth_time_table[3] >readout->current_value)
 	    {
 	      //DO THE AZIMUTH INTERPOLATION FIRST
 	      readout->calc_time[0] = readout->current_value;	//time we want to interpolate to
-	      readout->calc_time[1] = (double) readout->azimuth_time_table[1];	//first time
-	      readout->calc_time[2] = (double) readout->azimuth_time_table[2];	//second time
+	      readout->calc_time[1] = (double) readout->azimuth_time_table[2];	//first time
+	      readout->calc_time[2] = (double) readout->azimuth_time_table[3];	//second time
 	      readout->calc_time[3] = readout->calc_time[2] - readout->calc_time[1];	//total time difference
 	      readout->calc_time[4] = readout->calc_time[0] - readout->calc_time[1];	//time difference to interpolation point
 	      readout->calc_time[5] = readout->calc_time[4] / readout->calc_time[3];	//fraction of time to interpolation point
 	      //NOw calculate the azimuth positions
-	      readout->calc_time[6] =(double) readout->azimuth_position_table[1];
-	      readout->calc_time[7] =(double) readout->azimuth_position_table[2];
+	      readout->calc_time[6] =(double) readout->azimuth_position_table[2];
+	      readout->calc_time[7] =(double) readout->azimuth_position_table[3];
 	      readout->calc_time[8] =readout->calc_time[7] - readout->calc_time[6];
 	      readout->calc_time[9] =readout->calc_time[8] * readout->calc_time[5] +readout->calc_time[6];
 	      readout->az_position[readout->sample_number] = (float) readout->calc_time[9];	//and store the azimuth value
 	      //AND NOW THE ELEVATION INTERPOLATION- WE DON"T NEED TO REDO THE TIME CALCS ONLY THE POSITION
-	      readout->calc_time[6] =(double) readout->altitude_position_table[1];
-	      readout->calc_time[7] =(double) readout->altitude_position_table[2];
+	      readout->calc_time[6] =(double) readout->altitude_position_table[2];
+	      readout->calc_time[7] =(double) readout->altitude_position_table[3];
 	      readout->calc_time[8] =readout->calc_time[7] - readout->calc_time[6];
 	      readout->calc_time[9] =readout->calc_time[8] * readout->calc_time[5] + readout->calc_time[6];
 	      readout->alt_position[readout->sample_number] = (float) readout->calc_time[9];	//and store the altitude valu
 	      //AND NOW THE AZIMUTH ERROR INTERPOLATION- 
-	      readout->calc_time[6] = (double) readout->az_pos_err_table[1];
-	      readout->calc_time[7] = (double) readout->az_pos_err_table[2];
+	      readout->calc_time[6] = (double) readout->az_pos_err_table[2];
+	      readout->calc_time[7] = (double) readout->az_pos_err_table[3];
 	      readout->calc_time[8] =readout->calc_time[7] - readout->calc_time[6];
 	      readout->calc_time[9] =readout->calc_time[8] * readout->calc_time[5] +readout->calc_time[6];
 	      readout->az_pos_err[readout->sample_number] = (float) readout->calc_time[9];	//and store the az err valu
 	      //readout->az_pos_err[readout->sample_number] = (float) azerr1;	//and store the az err valu
 	      //AND FINALLY the ALTITUDE ERROR INTERPOLATION- 
-	      readout->calc_time[6] = (double) readout->alt_pos_err_table[1];
-	      readout->calc_time[7] = (double) readout->alt_pos_err_table[2];
+	      readout->calc_time[6] = (double) readout->alt_pos_err_table[2];
+	      readout->calc_time[7] = (double) readout->alt_pos_err_table[3];
 	      readout->calc_time[8] =readout->calc_time[7] - readout->calc_time[6];
 	      readout->calc_time[9] =readout->calc_time[8] * readout->calc_time[5] +readout->calc_time[6];
 	      readout->alt_pos_err[readout->sample_number] = (float) readout->calc_time[9];	//and store the az err valu
 	      //readout->alt_pos_err[readout->sample_number] = (float) alterr1;	//and store the az err valu
+	      //printf("Interpolation %f %f %f %f \n",readout->calc_time[1],readout->calc_time[2],readout->az_position[readout->sample_number],readout->alt_position[readout->sample_number]);
 
 	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1381491125;;
-	      readout->timeuSeconds[readout->sample_number] = (long) user->time_struct.tv_usec;
-
+//	      readout->timeuSeconds[readout->sample_number] = (long) user->time_struct.tv_usec;
+		if(readout->ppsTime.tv_usec>60000){
+		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value-(1000000-readout->ppsTime.tv_usec);
+		}
+		else if(readout->ppsTime.tv_usec<=40000){
+		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value+readout->ppsTime.tv_usec;
+		}
+		else if(readout->ppsTime.tv_usec<=60000 && readout->ppsTime.tv_usec>40000){
+			printf("NTP time is out by more than 40ms\n");
+		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value;
+		}
 	      readout->sample_number++;	//increment the sample counter
 	      readout->current_value =readout->sample_number * readout->sample_rate;
 	//	printf("readout time %d %d %d\n",(long) user->time_struct.tv_sec,user->time_struct.tv_usec,readout->sample_number);
@@ -2884,29 +2376,31 @@ ramp (volatile long *pid_return_old, long *az_pid1, long *az_pid2,
   current_ramp_alt2 = *alt_pid2 - pid_return_old_alt2;
 
 
-      if (current_ramp_az1 < -MAX_AZ_RAMP)
+      if (current_ramp_az1 <= -MAX_AZ_RAMP)
 	{
 	 // *az_pid1 = pid_return_old_az1 - MAX_AZ_RAMP;
 	    *az_pid1 = pid_return_old_az1-MAX_AZ_RAMP;
-	  // printf("Ramp az1 overload: Rounding down to %i\n,",*az_pid1);
+	 //  printf("Ramp az1 overload: Rounding down to %i\n,",*az_pid1);
 	}
-      if (current_ramp_az1 > MAX_AZ_RAMP)
+      if (current_ramp_az1 >= MAX_AZ_RAMP)
 	{
 	   *az_pid1 = pid_return_old_az1+MAX_AZ_RAMP;
 	 // *az_pid1 =  MAX_AZ_RAMP;
-	  //printf("Ramp az1 overload: Rounding up to %i\n,",*az_pid1);
+	 // printf("Ramp az1 overload: Rounding up to %i\n,",*az_pid1);
 	}
       
-     if (current_ramp_az2 < -MAX_AZ_RAMP)
+     if (current_ramp_az2 <= -MAX_AZ_RAMP)
 	{
+	//   printf("Ramp az2 overload:  %i\n,",*az_pid2);
 	 // *az_pid1 = pid_return_old_az1 - MAX_AZ_RAMP;
 	    *az_pid2 = pid_return_old_az2-MAX_AZ_RAMP;
-	  // printf("Ramp az1 overload: Rounding down to %i\n,",*az_pid1);
+	  // printf("Ramp az2 overload: Rounding down to %i\n,",*az_pid2);
 	}
-      if (current_ramp_az2 > MAX_AZ_RAMP)
+      if (current_ramp_az2 >= MAX_AZ_RAMP)
 	{
+	 //  printf("Ramp az2 overload:  %i\n,",*az_pid2);
 	  *az_pid2 = pid_return_old_az2+ MAX_AZ_RAMP;
-	  //printf("Ramp az1 overload: Rounding up to %i\n,",*az_pid1);
+	//  printf("Ramp az2 overload: Rounding up to %i\n,",*az_pid2);
 	}
 
       if (current_ramp_alt1 < -MAX_ALT_RAMP)
