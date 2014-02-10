@@ -86,8 +86,8 @@
 #define MAX_ALT_POS_SPACE_DEG 2
 #define MIN_ALT_POS_SPACE_DEG -2
 //these define the maximum permitted azimuth accelerations that can be commanded to the antenna using the 117 enum (i.e the control that should be used for all user type control- defined as EQUATORAIL2 for historical reasons )-these should be values in mdeg/s/s i.e 1000 means a maximum acceleration of 1000mdeg/s/s or 1deg/s/s- so for a typical cross scan going between 1deg/s and -1 deg/s we would want a turnaround of say 5 seconds giving a acceleration of 2deg/s / 5seconds =0.4 deg/s/s so a value of 400 is appropriate
-#define MAX_AZ_ACCEL 20
-#define MIN_AZ_ACCEL -20
+#define MAX_AZ_ACCEL 40
+#define MIN_AZ_ACCEL -40
 #define MAX_ALT_ACCEL 20
 #define MIN_ALT_ACCEL -20
 //maximum ramp speed (this controls the antenna acceleration)
@@ -197,4 +197,5 @@ struct readout_struct{
     int volatile ready;
     long samples_per_second;
     int softLimitStatus;	
+    struct timeval ppsTime;
     };
