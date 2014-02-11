@@ -181,6 +181,10 @@ struct readout_struct{
     float altitude_position_table[10];
     float az_pos_err_table[10];
     float alt_pos_err_table[10];
+    int az_tacho1_table[10];
+    int az_tacho2_table[10];
+    int alt_tacho1_table[10];
+    int alt_tacho2_table[10];
     double calc_time[10];
     long sample_rate;
     long sample_number;
@@ -192,6 +196,10 @@ struct readout_struct{
     volatile float alt_ready_to_read[5];
     volatile float az_err_ready_to_read[5];
     volatile float alt_err_ready_to_read[5];
+    volatile int az_tacho1_ready_to_read[5];
+    volatile int az_tacho2_ready_to_read[5];
+    volatile int alt_tacho1_ready_to_read[5];
+    volatile int alt_tacho2_ready_to_read[5];
     volatile int time_ready_to_read[5];
     volatile int timeuSeconds_ready_to_read[5];
     int volatile ready;

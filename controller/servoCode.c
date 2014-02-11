@@ -398,7 +398,7 @@ servlet (void *childfd) /* servlet thread */
 //		printf ("Replying to angle encoder\n");
 		  pthread_mutex_lock (&readout_lock);
 	      sprintf (return_string,
-		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%ld,%ld\r",
+		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r",
 		       GIM, readout.az_ready_to_read[0],
 		       readout.az_ready_to_read[1],
 		       readout.az_ready_to_read[2],
@@ -428,7 +428,27 @@ servlet (void *childfd) /* servlet thread */
 			readout.time_ready_to_read[1],
 			readout.time_ready_to_read[2],
 			readout.time_ready_to_read[3],
-			readout.time_ready_to_read[4]);
+			readout.time_ready_to_read[4],
+			readout.az_tacho1_ready_to_read[0],
+			readout.az_tacho1_ready_to_read[1],
+			readout.az_tacho1_ready_to_read[2],
+			readout.az_tacho1_ready_to_read[3],
+			readout.az_tacho1_ready_to_read[4],
+			readout.az_tacho2_ready_to_read[0],
+			readout.az_tacho2_ready_to_read[1],
+			readout.az_tacho2_ready_to_read[2],
+			readout.az_tacho2_ready_to_read[3],
+			readout.az_tacho2_ready_to_read[4],
+			readout.alt_tacho1_ready_to_read[0],
+			readout.alt_tacho1_ready_to_read[1],
+			readout.alt_tacho1_ready_to_read[2],
+			readout.alt_tacho1_ready_to_read[3],
+			readout.alt_tacho1_ready_to_read[4],
+			readout.alt_tacho2_ready_to_read[0],
+			readout.alt_tacho2_ready_to_read[1],
+			readout.alt_tacho2_ready_to_read[2],
+			readout.alt_tacho2_ready_to_read[3],
+			readout.alt_tacho2_ready_to_read[4]);
 			//readout.ppsTime.tv_sec,
 			//readout.ppsTime.tv_usec);
 		      readout.ready = 0;
@@ -1522,6 +1542,11 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 	  alttacho[1] = alttacho1;
 	  alttacho[2] = alttacho2;
 	  alttacho[3] = alttacho1;	//checks for the speed zone
+	//populate the loop tacho with the tachometer voltages 
+	 loop.tacho1=aztacho1;	
+	  loop.tacho2=aztacho2;	
+	  loop.tacho3=alttacho1;	
+	  loop.tacho4=alttacho2;	
 
 	  switch ((loop.vel_of_az < 50. && loop.vel_of_az > -50.))
 	    {
@@ -1672,7 +1697,7 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 
 	  if (countera == 9)
 	    {
-	      printf("Command pos %lf Error  %lf Vel %lf %d %d %f %f %f\n",loop.azimuth_command_double,azerr1,loop.vel_of_az,aztacho1,aztacho2,pos_az_dot,(double)kfa_azimuth*aztacho2,kfa_azimuth) ;//conversion factor from tacho to actual veloctiy
+	     // printf("Command pos %lf Error  %lf Vel %lf %d %d %f %f %f\n",loop.azimuth_command_double,azerr1,loop.vel_of_az,aztacho1,aztacho2,pos_az_dot,(double)kfa_azimuth*aztacho2,kfa_azimuth) ;//conversion factor from tacho to actual veloctiy
 	     // printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf ",pid_return_new[0],velpid_out_az,loop.az_pid1,loop.vel_of_az,loop.kfcoeffs[1]*loop.vel_of_az,aztacho1,azencoder_vel[7],loop.vel_of_alt,azerr1);
 	      //printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf \n",pid_return_new[2],velpid_out_alt,loop.alt_pid1,loop.vel_of_alt,loop.kfcoeffs[3]*loop.vel_of_alt,alttacho1,altencoder_vel[7],loop.vel_of_alt,alterr1);
 	      //printf("Az Encoder Velocity Tacho %d %f %f\n",aztacho[0],loop.vel_of_az,loop.kfcoeffs[0]*loop.vel_of_az);
@@ -1948,6 +1973,30 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 	  readout->alt_pos_err_table[3] = readout->alt_pos_err_table[4];
 	  readout->alt_pos_err_table[4] = alterr1;
 
+	  readout->az_tacho1_table[0] = readout->az_tacho1_table[1];
+	  readout->az_tacho1_table[1] = readout->az_tacho1_table[2];
+	  readout->az_tacho1_table[2] = readout->az_tacho1_table[3];
+	  readout->az_tacho1_table[3] = readout->az_tacho1_table[4];
+	  readout->az_tacho1_table[4] = loop->tacho1;
+
+	  readout->az_tacho2_table[0] = readout->az_tacho2_table[1];
+	  readout->az_tacho2_table[1] = readout->az_tacho2_table[2];
+	  readout->az_tacho2_table[2] = readout->az_tacho2_table[3];
+	  readout->az_tacho2_table[3] = readout->az_tacho2_table[4];
+	  readout->az_tacho2_table[4] = loop->tacho2;
+
+	  readout->alt_tacho1_table[0] = readout->alt_tacho1_table[1];
+	  readout->alt_tacho1_table[1] = readout->alt_tacho1_table[2];
+	  readout->alt_tacho1_table[2] = readout->alt_tacho1_table[3];
+	  readout->alt_tacho1_table[3] = readout->alt_tacho1_table[4];
+	  readout->alt_tacho1_table[4] = loop->tacho3;
+	  
+	  readout->alt_tacho2_table[0] = readout->alt_tacho2_table[1];
+	  readout->alt_tacho2_table[1] = readout->alt_tacho2_table[2];
+	  readout->alt_tacho2_table[2] = readout->alt_tacho2_table[3];
+	  readout->alt_tacho2_table[3] = readout->alt_tacho2_table[4];
+	  readout->alt_tacho2_table[4] = loop->tacho4;
+
 
 	  //correct for rollover
 	  if (readout->azimuth_time_table[4] < readout->azimuth_time_table[3])
@@ -1972,6 +2021,10 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 		  {
 		    for (j = 0; j < readout->sample_number; j++)
 		      {
+			readout->az_tacho1_ready_to_read[j]=readout->az_tacho1_table[j];
+			readout->az_tacho2_ready_to_read[j]=readout->az_tacho2_table[j];
+			readout->alt_tacho1_ready_to_read[j]=readout->alt_tacho1_table[j];
+			readout->alt_tacho2_ready_to_read[j]=readout->alt_tacho2_table[j];
 			readout->az_ready_to_read[j] = readout->az_position[j];
 			readout->alt_ready_to_read[j] = readout->alt_position[j];
 /*			readout->az_err_ready_to_read[j] = readout->az_pos_err[j];
