@@ -1538,8 +1538,8 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 				 &azerr1, &loop.az_ic1, &loop.az_pid1);
 	      pid_return_new[0] = loop.az_pid1;
 	      pid_return_new[1] = 0.5 * loop.az_pid1;
-	      aztacho[0] = (long) aztacho2;	//use the low velocity value from the ADC i.e channel 1
-	      kfa_azimuth = loop.vfcoeffs[0];
+	      aztacho[0] = (long) aztacho1;	//this is the tacho with more gain on the input
+	      kfa_azimuth = loop.vfcoeffs[0];//conversion factor from tacho to actual veloctiy-using the first pid loop not the second!
 	      velocity_pid (aztacho[0], (double) loop.az_pid1, azerr1,
 			    kfa_azimuth, loop.pcoeffs_vel[0],
 			    loop.icoeffs_vel[0], 0., 2000, -2000,
@@ -1551,7 +1551,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 
 	      break;
 
-	    case 0:		//i.e the high velocity zone
+	    case 0:		//i.e the high velocity zone//this uses the
 	      update_pid_double (AZ_PID, loop.azimuth_command_double,
 				 prev_azencoderd, loop.azimuth_encoder_double,
 				 loop.pcoeffs[1], loop.icoeffs[1],
@@ -1565,8 +1565,8 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 	      pid_return_new[0] = loop.az_pid1;
 	      pid_return_new[1] = 0.5 * loop.az_pid1;
 
-	      aztacho[0] = (long) aztacho2;
-	      kfa_azimuth = loop.vfcoeffs[1];
+	      aztacho[0] = (long) aztacho2; //this is the tacho with less gain on the input
+	      kfa_azimuth = loop.vfcoeffs[1]; //here we use the second pid loop not the first
 	      velocity_pid (aztacho[0], (double) loop.az_pid1, azerr1,
 			    kfa_azimuth, loop.pcoeffs_vel[1],
 			    loop.icoeffs_vel[1], 0., 2000, -2000,
@@ -1672,7 +1672,7 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 
 	  if (countera == 9)
 	    {
-	      printf("Command pos %lf Error  %lf Vel %lf %d %d %f\n",loop.azimuth_command_double,azerr1,loop.vel_of_az,aztacho1,aztacho2,pos_az_dot);
+	      printf("Command pos %lf Error  %lf Vel %lf %d %d %f %f %f\n",loop.azimuth_command_double,azerr1,loop.vel_of_az,aztacho1,aztacho2,pos_az_dot,(double)kfa_azimuth*aztacho2,kfa_azimuth) ;//conversion factor from tacho to actual veloctiy
 	     // printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf ",pid_return_new[0],velpid_out_az,loop.az_pid1,loop.vel_of_az,loop.kfcoeffs[1]*loop.vel_of_az,aztacho1,azencoder_vel[7],loop.vel_of_alt,azerr1);
 	      //printf("PID pos %7d vel %7d Tot %7d AZ %7lf %7lf %7d %7lf %7lf %7lf \n",pid_return_new[2],velpid_out_alt,loop.alt_pid1,loop.vel_of_alt,loop.kfcoeffs[3]*loop.vel_of_alt,alttacho1,altencoder_vel[7],loop.vel_of_alt,alterr1);
 	      //printf("Az Encoder Velocity Tacho %d %f %f\n",aztacho[0],loop.vel_of_az,loop.kfcoeffs[0]*loop.vel_of_az);
