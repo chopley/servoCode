@@ -1563,7 +1563,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 				 &azerr1, &loop.az_ic1, &loop.az_pid1);
 	      pid_return_new[0] = loop.az_pid1;
 	      pid_return_new[1] = 0.5 * loop.az_pid1;
-	      aztacho[0] = (long) aztacho1;	//this is the tacho with more gain on the input
+	      aztacho[0] = (long) aztacho2;	//this is the tacho with more gain on the input
 	      kfa_azimuth = loop.vfcoeffs[0];//conversion factor from tacho to actual veloctiy-using the first pid loop not the second!
 	      velocity_pid (aztacho[0], (double) loop.az_pid1, azerr1,
 			    kfa_azimuth, loop.pcoeffs_vel[0],
@@ -1626,7 +1626,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 	      pid_return_new[3] = 0.5 * loop.alt_pid1;
 
 
-	      alttacho[0] = (long) alttacho1;	//use the low velocity value from the ADC i.e channel 1
+	      alttacho[0] = (long) alttacho2;	
 	      velocity_pid (alttacho[0], loop.alt_pid1, alterr1,
 			    loop.vfcoeffs[2], loop.pcoeffs_vel[2],
 			    loop.icoeffs_vel[2], 0., 2000, -2000,
