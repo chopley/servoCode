@@ -219,7 +219,7 @@ struct pid_structure tcp_control_structs[5];
 struct command_struct command;
 
 volatile struct readout_struct readout;
-void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_struct *readout,volatile struct pid_structure *loop,struct pid_structure *user); 
+void readoutStructUpdate(double azerr1,double alterr1,long *pidReturn,long *aztacho,long *alttacho, volatile struct readout_struct *readout,volatile struct pid_structure *loop,struct pid_structure *user); 
 //struct command_position_struct command;
 
 //velocity PID loop
@@ -398,7 +398,7 @@ servlet (void *childfd) /* servlet thread */
 //		printf ("Replying to angle encoder\n");
 		  pthread_mutex_lock (&readout_lock);
 	      sprintf (return_string,
-		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r",
+		       "%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r",
 		       GIM, readout.az_ready_to_read[0],
 		       readout.az_ready_to_read[1],
 		       readout.az_ready_to_read[2],
@@ -448,7 +448,28 @@ servlet (void *childfd) /* servlet thread */
 			readout.alt_tacho2_ready_to_read[1],
 			readout.alt_tacho2_ready_to_read[2],
 			readout.alt_tacho2_ready_to_read[3],
-			readout.alt_tacho2_ready_to_read[4]);
+			readout.alt_tacho2_ready_to_read[4],
+			readout.az_pid1_ready_to_read[0],
+			readout.az_pid1_ready_to_read[1],
+			readout.az_pid1_ready_to_read[2],
+			readout.az_pid1_ready_to_read[3],
+			readout.az_pid1_ready_to_read[4],
+			readout.az_pid2_ready_to_read[0],
+			readout.az_pid2_ready_to_read[1],
+			readout.az_pid2_ready_to_read[2],
+			readout.az_pid2_ready_to_read[3],
+			readout.az_pid2_ready_to_read[4],
+			readout.el_pid1_ready_to_read[0],
+			readout.el_pid1_ready_to_read[1],
+			readout.el_pid1_ready_to_read[2],
+			readout.el_pid1_ready_to_read[3],
+			readout.el_pid1_ready_to_read[4],
+			readout.el_pid2_ready_to_read[0],
+			readout.el_pid2_ready_to_read[1],
+			readout.el_pid2_ready_to_read[2],
+			readout.el_pid2_ready_to_read[3],
+			readout.el_pid2_ready_to_read[4]
+);
 			//readout.ppsTime.tv_sec,
 			//readout.ppsTime.tv_usec);
 		      readout.ready = 0;
@@ -1225,6 +1246,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 
 	  aztacho1 += 45;
 	  aztacho2 += 40;
+	  alttacho2 +=100;
 
 
 
@@ -1690,7 +1712,7 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 //	readout.instantAzErr = azerr1;
 //	readout.instantAltErr = alterr1;
 //azerr_uncorrected is the error compared to the actual given command from the control PC- I correct this on the servo to limit accelerations etc.
-	  readoutStructUpdate(azerr_uncorrected,alterr_uncorrected,&readout,&loop,&user); 
+	  //readoutStructUpdate(azerr_uncorrected,alterr_uncorrected,&readout,&loop,&user); 
 //	  readoutStructUpdate(azerr1,alterr1,&readout,&loop,&user); 
 
 
@@ -1776,9 +1798,9 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 	      if (alterr1 < 3. && alterr1 > -3.)
 		{
 		
-	  backlash (loop.alt_command_long, user.alt_encoder_long,
-		    loop.vel_of_alt, 500, 100, 0, 0, &pid_return_new[2],
-		    &pid_return_new[3]);
+	 // backlash (loop.alt_command_long, user.alt_encoder_long,
+	//	    loop.vel_of_alt, 00, 00, 0, 0, &pid_return_new[2],
+	//	    &pid_return_new[3]);
 		}
 		}
 
@@ -1868,6 +1890,7 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 	  loop.alt2_dac_control =
 	    ad5362_crc_pack (XREGISTER_WRITE, CH8, pid_return_new[3]);
 
+	  readoutStructUpdate(azerr_uncorrected,alterr_uncorrected,pid_return_new,aztacho,alttacho,&readout,&loop,&user); 
 
 	  // status_vec=control.status_vec;
 
@@ -1935,9 +1958,10 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 }
 
 
-void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_struct *readout,volatile struct pid_structure *loop,struct pid_structure *user){ 
+void readoutStructUpdate(double azerr1,double alterr1,long *pidReturn,long *aztacho,long *alttacho, volatile struct readout_struct *readout,volatile struct pid_structure *loop,struct pid_structure *user){ 
 		int j; 
 
+  long pid[4];
   time_t mytime;
 	int ppsUSeconds;
 
@@ -1977,26 +2001,49 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 	  readout->az_tacho1_table[1] = readout->az_tacho1_table[2];
 	  readout->az_tacho1_table[2] = readout->az_tacho1_table[3];
 	  readout->az_tacho1_table[3] = readout->az_tacho1_table[4];
-	  readout->az_tacho1_table[4] = loop->tacho1;
+	  readout->az_tacho1_table[4] = *(aztacho+1);
 
 	  readout->az_tacho2_table[0] = readout->az_tacho2_table[1];
 	  readout->az_tacho2_table[1] = readout->az_tacho2_table[2];
 	  readout->az_tacho2_table[2] = readout->az_tacho2_table[3];
 	  readout->az_tacho2_table[3] = readout->az_tacho2_table[4];
-	  readout->az_tacho2_table[4] = loop->tacho2;
+	  readout->az_tacho2_table[4] = *(aztacho+2);
 
 	  readout->alt_tacho1_table[0] = readout->alt_tacho1_table[1];
 	  readout->alt_tacho1_table[1] = readout->alt_tacho1_table[2];
 	  readout->alt_tacho1_table[2] = readout->alt_tacho1_table[3];
 	  readout->alt_tacho1_table[3] = readout->alt_tacho1_table[4];
-	  readout->alt_tacho1_table[4] = loop->tacho3;
+	  readout->alt_tacho1_table[4] = *(alttacho+1);
 	  
 	  readout->alt_tacho2_table[0] = readout->alt_tacho2_table[1];
 	  readout->alt_tacho2_table[1] = readout->alt_tacho2_table[2];
 	  readout->alt_tacho2_table[2] = readout->alt_tacho2_table[3];
 	  readout->alt_tacho2_table[3] = readout->alt_tacho2_table[4];
-	  readout->alt_tacho2_table[4] = loop->tacho4;
+	  readout->alt_tacho2_table[4] = *(alttacho+2);
 
+	  readout->az_pid1_table[0] = readout->az_pid1_table[1];
+	  readout->az_pid1_table[1] = readout->az_pid1_table[2];
+	  readout->az_pid1_table[2] = readout->az_pid1_table[3];
+	  readout->az_pid1_table[3] = readout->az_pid1_table[4];
+	  readout->az_pid1_table[4] = *pidReturn;
+	  
+	readout->az_pid2_table[0] = readout->az_pid2_table[1];
+	  readout->az_pid2_table[1] = readout->az_pid2_table[2];
+	  readout->az_pid2_table[2] = readout->az_pid2_table[3];
+	  readout->az_pid2_table[3] = readout->az_pid2_table[4];
+	  readout->az_pid2_table[4] = *(pidReturn+1);
+	
+	readout->el_pid1_table[0] = readout->el_pid1_table[1];
+	  readout->el_pid1_table[1] = readout->el_pid1_table[2];
+	  readout->el_pid1_table[2] = readout->el_pid1_table[3];
+	  readout->el_pid1_table[3] = readout->el_pid1_table[4];
+	  readout->el_pid1_table[4] = *(pidReturn+2);
+
+	readout->el_pid2_table[0] = readout->el_pid2_table[1];
+	  readout->el_pid2_table[1] = readout->el_pid2_table[2];
+	  readout->el_pid2_table[2] = readout->el_pid2_table[3];
+	  readout->el_pid2_table[3] = readout->el_pid2_table[4];
+	  readout->el_pid2_table[4] = *(pidReturn+3);
 
 	  //correct for rollover
 	  if (readout->azimuth_time_table[4] < readout->azimuth_time_table[3])
@@ -2021,6 +2068,13 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 		  {
 		    for (j = 0; j < readout->sample_number; j++)
 		      {
+			
+			readout->az_pid1_ready_to_read[j]=readout->az_pid1_table[j];
+			readout->az_pid2_ready_to_read[j]=readout->az_pid2_table[j];
+			readout->el_pid1_ready_to_read[j]=readout->el_pid1_table[j];
+			readout->el_pid2_ready_to_read[j]=readout->el_pid2_table[j];
+
+	
 			readout->az_tacho1_ready_to_read[j]=readout->az_tacho1_table[j];
 			readout->az_tacho2_ready_to_read[j]=readout->az_tacho2_table[j];
 			readout->alt_tacho1_ready_to_read[j]=readout->alt_tacho1_table[j];
@@ -2094,7 +2148,8 @@ void readoutStructUpdate(double azerr1,double alterr1, volatile struct readout_s
 	      //readout->alt_pos_err[readout->sample_number] = (float) alterr1;	//and store the az err valu
 	      //printf("Interpolation %f %f %f %f \n",readout->calc_time[1],readout->calc_time[2],readout->az_position[readout->sample_number],readout->alt_position[readout->sample_number]);
 
-	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1381491125;;
+	    //  readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1381491125;;
+	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1398483573;;
 //	      readout->timeuSeconds[readout->sample_number] = (long) user->time_struct.tv_usec;
 		if(readout->ppsTime.tv_usec>60000){
 		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value-(1000000-readout->ppsTime.tv_usec);

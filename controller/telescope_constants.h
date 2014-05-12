@@ -81,8 +81,8 @@
 #define MIN_ALT_SPEED -5000
 
 //these will define the maximum space between successive control positions (in deg/s)
-#define MAX_AZ_POS_SPACE_DEG 4.5
-#define MIN_AZ_POS_SPACE_DEG -4.5
+#define MAX_AZ_POS_SPACE_DEG 5.0
+#define MIN_AZ_POS_SPACE_DEG -5.0
 #define MAX_ALT_POS_SPACE_DEG 1
 #define MIN_ALT_POS_SPACE_DEG -1
 //these define the maximum permitted azimuth accelerations that can be commanded to the antenna using the 117 enum (i.e the control that should be used for all user type control- defined as EQUATORAIL2 for historical reasons )-these should be values in mdeg/s/s i.e 1000 means a maximum acceleration of 1000mdeg/s/s or 1deg/s/s- so for a typical cross scan going between 1deg/s and -1 deg/s we would want a turnaround of say 5 seconds giving a acceleration of 2deg/s / 5seconds =0.4 deg/s/s so a value of 400 is appropriate
@@ -185,6 +185,10 @@ struct readout_struct{
     int az_tacho2_table[10];
     int alt_tacho1_table[10];
     int alt_tacho2_table[10];
+    int az_pid1_table[10];
+    int az_pid2_table[10];
+    int el_pid1_table[10];
+    int el_pid2_table[10];
     double calc_time[10];
     long sample_rate;
     long sample_number;
@@ -200,6 +204,10 @@ struct readout_struct{
     volatile int az_tacho2_ready_to_read[5];
     volatile int alt_tacho1_ready_to_read[5];
     volatile int alt_tacho2_ready_to_read[5];
+    volatile int az_pid1_ready_to_read[5];
+    volatile int az_pid2_ready_to_read[5];
+    volatile int el_pid1_ready_to_read[5];
+    volatile int el_pid2_ready_to_read[5];
     volatile int time_ready_to_read[5];
     volatile int timeuSeconds_ready_to_read[5];
     int volatile ready;

@@ -150,5 +150,6 @@ struct pid_structure{
 	double delta_az,delta_alt;
 	double vel_of_az,vel_of_alt;
 	unsigned int status_vec[20];
+	struct timeval ppsTime;
 };
 
