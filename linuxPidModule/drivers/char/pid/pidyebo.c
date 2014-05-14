@@ -48,7 +48,11 @@
 //this defines the structure used to copy data between kernel and userspace- check that this file is the same in both ALWAYS!!
 
 
-
+static unsigned int irq;
+static unsigned int irq_PC15_1PPS;
+long ppsSorted[100];
+long ppsUnsorted[100];
+int ppsCounter=0;
 /* Deal with CONFIG_MODVERSIONS */
 
 #if CONFIG_MODVERSIONS==1
@@ -90,6 +94,7 @@ static DECLARE_WAIT_QUEUE_HEAD(wq);
 
 
 extern unsigned long loops_per_jiffy;
+volatile struct timeval time_struct_pps;
 //for reading from the device;
 static char msg[50];
 static char *msg_Ptr;
@@ -102,6 +107,7 @@ void __iomem *spi1_base;
 void __iomem *dmabuf;
 
 
+void sort(long *unsorted, long *sorted, int length);
 unsigned int ad5362_crc_pack(unsigned int command,unsigned int channel,unsigned int value);
 unsigned int ad5362_crc_pack1(unsigned int command,unsigned int channel,unsigned int value);
 unsigned int check_limits(unsigned int az_encoder,unsigned int el_encoder,unsigned int AZMIN_VAL,unsigned int AZMAX_VAL,unsigned int ALTMIN_VAL,unsigned int ALTMAX_VAL);
@@ -214,6 +220,55 @@ static const struct encoder_driver angle =
 	.clock = AT91_PIN_PB18,
 	.data = AT91_PIN_PB19,
 };
+
+//interrupt to handle the GPS 1PPS
+static irqreturn_t pps_irq(int irq, void *_cf, struct pt_regs *r)
+{	
+		unsigned short alt_temp[5];
+		unsigned short az_temp[5];
+		struct pid_structure ppsReadout;
+		int i;
+		extern int ppsCounter;
+		extern long ppsSorted[100];
+		extern long ppsUnsorted[100];
+		ppsCounter++;
+
+		extern volatile struct timeval time_struct_pps;
+	at91_sys_read(AT91_AIC_IVR);//need to read this at the start	
+		do_gettimeofday(&(time_struct_pps));
+		for(i=0;i<=98;i++){
+			ppsUnsorted[i]=ppsUnsorted[i+1];
+		}
+		ppsUnsorted[99]=(long)time_struct_pps.tv_usec;
+		if(ppsCounter>100){
+//			printk("PPS Counter filtering\n");
+			sort(ppsUnsorted,ppsSorted,100) ;
+			time_struct_pps.tv_usec=ppsSorted[50];//use the bubble sort to get a median value of the pps for the last 20 seconds
+		}
+		
+	//	for(i=0;i<=19;i++){
+	//		printk("%ld %ld\n",ppsUnsorted[i],ppsSorted[i]);
+	//	}
+		
+//		while((abs(az_temp[0]-az_temp[1])>2) && i<10){
+//			az_temp[0] = read_encoder(0);
+//			az_temp[1] = read_encoder(0);
+//			i++;
+//		}
+//		i=0;
+//		while((abs(alt_temp[0]-alt_temp[1])>2)&& i<10){
+//			alt_temp[0] = read_encoder(1);
+//			alt_temp[1] = read_encoder(1);
+//			i++;
+//		}
+		//t_antenna_readings(hardware_connected,&ppsReadout.az_encoder_long,&ppsReadout.az_encoder,&ppsReadout.alt_encoder_long,&ppsReadout.az_encoder,&ppsReadout.azimuth_zone, &ppsReadout.tacho1,&ppsReadout.tacho2,&ppsReadout.tacho3,&ppsReadout.tacho4);
+//		printk(KERN_ALERT "1PPS  interrupt %ld %ld %ld %ld %d \n",time_struct_pps.tv_sec,time_struct_pps.tv_usec,az_temp[0],alt_temp[0],ppsCounter);
+		
+	at91_sys_write(AT91_AIC_EOICR,0xffffffff);//indicates the interrupt has been handled
+	return IRQ_HANDLED;
+}
+
+
 
 /*this interrupt is the heart beat of the control loop- basically updates values in the pid control structure.*/
 static irqreturn_t pid_irq(int irq, void *_cf, struct pt_regs *r)
@@ -363,11 +418,11 @@ static irqreturn_t pid_irq(int irq, void *_cf, struct pt_regs *r)
 		if(flags.timer_counter>=control.interrupt_rate){
 			spin_lock_irqsave(&mylock,irq_state1);
 				spin_lock_irqsave(&flag_struct,irq_state2);
+					do_gettimeofday(&(control.time_struct));
 					control.read_status = get_antenna_readings(hardware_connected,&control.az_encoder_long,&control.az_encoder,&control.alt_encoder_long,&control.alt_encoder,&control.azimuth_zone, &control.tacho1,&control.tacho2,&control.tacho3,&control.tacho4);
 					//get time//
 					//printk("AZ ENCODER%d \n",control.az_encoder_long);
 					//printk("ALT ENCODER%d \n",control.alt_encoder_long);	
-					do_gettimeofday(&(control.time_struct));
 					//printk("Time %ld\n",control.time_struct.tv_usec);
 				spin_unlock_irqrestore(&flag_struct,irq_state2);
 			spin_unlock_irqrestore(&mylock,irq_state1);
@@ -468,6 +523,7 @@ ssize_t user_pid_read(struct file *filp, char __user *buffer,size_t length, loff
 	DEFINE_WAIT(wait);
 	int bytes_read = 0;
 	struct pid_structure update;
+	extern volatile struct timeval time_struct_pps;
 	//	int result;
 	int len=0;
 	int ret;
@@ -490,6 +546,7 @@ ssize_t user_pid_read(struct file *filp, char __user *buffer,size_t length, loff
 		spin_lock_irqsave(&mylock,irq_state1);
 			ret = emergency_stop(&control);	
 			update=control;
+			update.ppsTime=time_struct_pps;
 			returnval = len-bytes_read;
 		spin_unlock_irqrestore(&mylock,irq_state1);
 		bytes_read = copy_to_user(buffer,&update,length);
@@ -500,13 +557,14 @@ ssize_t user_pid_read(struct file *filp, char __user *buffer,size_t length, loff
 			//flags.delayflag=1;
 			flags.readflag=1;
 		spin_unlock_irqrestore(&flag_struct,irq_state1);
-		wait_event_interruptible_timeout(wq, flags.wflag!=0,20000);
+		wait_event_interruptible_timeout(wq, flags.wflag!=0,20000);//wait for the interrupt to be lifted!
 		spin_lock_irqsave(&flag_struct,irq_state1);
 			flags.wflag=0;
 		spin_unlock_irqrestore(&flag_struct,irq_state1);
 	}
 	spin_lock_irqsave(&mylock,irq_state1);
 		update=control;
+		update.ppsTime=time_struct_pps;
 	spin_unlock_irqrestore(&mylock,irq_state1);
 	
 	bytes_read = copy_to_user(buffer,&update,length);
@@ -956,7 +1014,8 @@ static struct miscdevice pid =
 static int mod_init(void)
 {
 	unsigned int ret,res;
-	unsigned int irq;
+	extern unsigned int irq;
+	extern unsigned int irq_PC15_1PPS;
 	unsigned long irq_state1;
 	unsigned long irq_state2;
 	//flag=1;
@@ -1062,13 +1121,15 @@ static int mod_init(void)
 
 
 	irq = AT91SAM9260_ID_TC0;
+	irq_PC15_1PPS = AT91SAM9260_ID_IRQ1;
 	printk("starting IRQ\n");
 //------------------------------------------------------
 	
- 	
+ //interrupt priority	
+	//at91_sys_write(AT91_AIC_SMR(AT91SAM9260_ID_TC0),0);	
 
 	if(interrupt_enable){
- 		res = request_irq(irq,(void *)pid_irq, IRQF_SHARED, "Timer0_IRQ",(void*)4);
+ 		res = request_irq(irq,(void *)pid_irq, IRQF_SHARED, "Timer0_IRQ",&irq);
 		if(res==0){
 	//	__raw_writel();
 		at91_sys_write(AT91_PMC_PCER,1<<AT91SAM9260_ID_TC0|at91_sys_read(AT91_PMC_PCSR));
@@ -1088,6 +1149,18 @@ static int mod_init(void)
 		printk("Request for Interrupt Line Failed\n");
 		
 	}
+	
+ //interrupt priority	
+	at91_sys_write(AT91_AIC_SMR(AT91SAM9260_ID_IRQ1),6);	
+	res = request_irq(AT91SAM9260_ID_IRQ1,(void *)pps_irq, IRQF_TRIGGER_RISING, "PPS_IRQ",&irq_PC15_1PPS);
+	if(res==0){
+		printk("Request for Interrupt Line Suceeded\n");
+		at91_sys_write(AT91_AIC_EOICR,0xffffffff);	
+	}
+	else{ 
+		printk("Request for Interrupt Line Failed\n");
+		
+	}
 
 	at91_sys_write(AT91_AIC_EOICR,0xffffffff);
 
@@ -1102,7 +1175,8 @@ static int mod_init(void)
 int mod_exit(void)
 {
 	int ret;
-	unsigned int irq;
+	extern unsigned int irq;
+	extern unsigned int irq_PC15_1PPS;
 	//unmap the memory region
 //	dma_free_coherent(&dev_pid, 1000,&dma_address1_coherent,GFP_ATOMIC);
 //	dma_free_coherent(&dev_pid, 1000,&dma_address2_coherent,GFP_ATOMIC);
@@ -1115,7 +1189,8 @@ int mod_exit(void)
 	at91_sys_write(AT91_AIC_IDCR,1<<AT91SAM9260_ID_TC0);
 	
  	ret = misc_deregister(&pid);
- 	free_irq(irq, (void*)4);
+ 	free_irq(irq, &irq);
+ 	free_irq(irq_PC15_1PPS, &irq_PC15_1PPS);
 	
 
 	iounmap(adc_base);
@@ -1128,7 +1203,8 @@ int mod_exit(void)
 
 unsigned short read_encoder(int encoder_number)
 {
-
+	int i;
+	int counterStop=100;
 	int clock,data,cs;
 	int counter =0;
 	int temp;
@@ -1143,7 +1219,7 @@ unsigned short read_encoder(int encoder_number)
 	int wavelength;
 
 	wavelength = control.encoder_wavelength;
-	wavelength = 12;
+	wavelength = 10;
 	state_time = wavelength>>1;
 	spin_lock_irqsave(&encoder_lock,irq_state);
 	
@@ -1503,7 +1579,6 @@ int get_antenna_readings(unsigned char command,unsigned int *azimuth_angle_long,
 {
 	
 	int output[100],output1[100];
-	
 	unsigned int adc1,adc2;
 	int retval=55;
 	int i;
@@ -1739,6 +1814,50 @@ unsigned int check_limits(unsigned int az_encoder,unsigned int alt_encoder,unsig
 
 	return retval;
 }
+
+void sort(long *unsorted, long *sorted, int length) {
+
+  
+  long tmp, tmp2;
+  long working[110], sorting[110]; //these must be longer than the length of the sort vector
+  int i, j;
+  //i=length;
+  for (i = 0; i < length; i++)
+    {
+      *(working + i) = *(unsorted + i);
+      *(sorting + i) = *(unsorted + i);
+     // printk("Starting Unsorted %d %f Sorted %f \n",i,*(working+i),*(sorting+i));
+
+    }
+
+ // printf("Sorting Vals\n");
+  for (i = 0; i<length; i++){
+      //printf("Unsorted %f Sorted %f \n",*(working+i),*(sorting+i));
+      for (j = 0; j < length - i; j++){
+		if (*(sorting + j + 1) < *(sorting + j)){                     /* compare the two neighbors */
+		    tmp = *(sorting + j);       /* swap a[j] and a[j+1]      */
+		    tmp2 = *(working + j);
+		    *(sorting + j) = *(sorting + j + 1);
+		    *(working + j) = *(working + j + 1);
+		    *(sorting + j + 1) = tmp;
+		    *(working + j + 1) = tmp2;
+		  }
+      //printf("22 Unsorted %f Sorted %f \n",*(unsorted+i),*(sorted+i));      
+    		}
+	}
+	 
+   for (i = 0; i < length; i++)
+	    {
+	      //printf("Ending %d Unsorted %f Sorted %f \n",i,*(working+i),*(sorting+i));
+	      *(sorted + i) = *(sorting + i);
+	    }
+
+
+
+
+
+}
+
 
 module_init(mod_init);
 module_exit(mod_exit); 
