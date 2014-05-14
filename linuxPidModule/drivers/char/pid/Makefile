@@ -10,7 +10,9 @@
 # endif 
 #DEBFLAGS = -O -g -D SCULL_DEBUG 
 obj-m := pid.o
+#pid-objs := pidyeboPPS.o ad5362.o ad7367.o crc_gen.o max7301.o
 pid-objs := pidyebo.o ad5362.o ad7367.o crc_gen.o max7301.o
+#pid-objs := pidWithPPS.o ad5362.o ad7367.o crc_gen.o max7301.o
 
 
 
