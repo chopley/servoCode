@@ -22,7 +22,7 @@
 //I.E FOR A READ FROM CHIP 2 20-27 A RETURN OF 0Xf7 MEANS 
 //27=1 (NOT CLOSED)
 //26=1 (N/C)
-//25=1 (N/C)
+//25=1 (N/C   
 //24=1 (N/C)
 //23=0 (CLOSED)
 //22=1 (N/C)
@@ -61,10 +61,10 @@
 //        17            IN      THR4+
 //        18            IN      MC4+            (Active LO)
 //        19            IN      MB4+
-//        20            IN      
-//        21            IN      
+//        20            IN      Brakes
+//        21            IN      Lids
 //        CON8
-//        22            IN      
+//        22            IN      Az Status Limit Switch
 //        23            IN      
 //        24            IN      
  //       25            IN      
@@ -582,7 +582,8 @@ servlet (void *childfd) /* servlet thread */
 	      byte_to_binary (STS_VEC[1], bin_temp);
 	      strcat (return_string, bin_temp);
 	      byte_to_binary (STS_VEC[2], bin_temp);
-	      bin_temp[2] = '\0';	//end the string here i.e allow 2 bits in the last status return
+	      #//intf("%s",bin_temp);
+	      bin_temp[3] = '\0';	//end the string here i.e allow 3 bits in the last status return
 	      strcat (return_string, bin_temp);
 	      sprintf (bin_temp, "%d", azZone);
 	      strcat (return_string, bin_temp);
