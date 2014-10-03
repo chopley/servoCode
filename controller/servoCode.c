@@ -582,7 +582,7 @@ servlet (void *childfd) /* servlet thread */
 	      byte_to_binary (STS_VEC[1], bin_temp);
 	      strcat (return_string, bin_temp);
 	      byte_to_binary (STS_VEC[2], bin_temp);
-	      #//intf("%s",bin_temp);
+	      //intf("%s",bin_temp);
 	      bin_temp[3] = '\0';	//end the string here i.e allow 3 bits in the last status return
 	      strcat (return_string, bin_temp);
 	      sprintf (bin_temp, "%d", azZone);
