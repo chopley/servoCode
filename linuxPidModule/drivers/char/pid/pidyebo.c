@@ -1150,7 +1150,7 @@ static int mod_init(void)
 		
 	}
 	
- //interrupt priority	
+ //interrupt priority	for 1PPS externallly triggered
 	at91_sys_write(AT91_AIC_SMR(AT91SAM9260_ID_IRQ1),6);	
 	res = request_irq(AT91SAM9260_ID_IRQ1,(void *)pps_irq, IRQF_TRIGGER_RISING, "PPS_IRQ",&irq_PC15_1PPS);
 	if(res==0){
@@ -1602,6 +1602,13 @@ int get_antenna_readings(unsigned char command,unsigned int *azimuth_angle_long,
 		//printk("Azimuth Zone %d\n",*azimuth_zone);
 	
 		
+		
+		i=0;
+		while((abs(alt_temp[0]-alt_temp[1])>2)&& i<10){
+			alt_temp[0] = 65535-read_encoder(1);
+			alt_temp[1] = 65535-read_encoder(1);
+			i++;
+		}
 		i=0;
 		while((abs(az_temp[0]-az_temp[1])>2) && i<10){
 			az_temp[0] = read_encoder(0);
@@ -1610,13 +1617,6 @@ int get_antenna_readings(unsigned char command,unsigned int *azimuth_angle_long,
 		}
 		*azimuth_angle_short = az_temp[0];
 		azimuth_test = (long)(previous_azimuth_angle) - (long)az_temp[0];
-		
-		i=0;
-		while((abs(alt_temp[0]-alt_temp[1])>2)&& i<10){
-			alt_temp[0] = read_encoder(1);
-			alt_temp[1] = read_encoder(1);
-			i++;
-		}
 		
 		//check azimuth zone of operation
 	
