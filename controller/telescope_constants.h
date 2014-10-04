@@ -9,8 +9,8 @@
 #define AZ_PID 1
 
 //the following two definitions should be adjusted if the angle encoder is replaced- these are very important as the define the rough zero point of the encoders used to translate from encoder to telescope azimuth and elevation
-#define AZIMUTH_ZERO 113000 //angle encoder position at due north (approximate)
-#define ELEVATION_ZERO 32830 //angle encoder position at horizon (approximate) [should be calculated from the 'relatively well defined' stow lock position by subtracting 16384- it should be ensured that the encoder is physically positioned so that there is not possibility of an encoder overflow i.e 65535->0. so elevation zero >0 and elevation hi >16384 < 65535]
+#define AZIMUTH_ZERO 78243 //angle encoder position at due north (approximate)
+#define ELEVATION_ZERO 30416 //angle encoder position at horizon (approximate) [should be calculated from the 'relatively well defined' stow lock position by subtracting 16384- it should be ensured that the encoder is physically positioned so that there is not possibility of an encoder overflow i.e 65535->0. so elevation zero >0 and elevation hi >16384 < 65535]
 
 
 
@@ -28,22 +28,22 @@
 //Note 8 September 2009: The program DOES use the Constants NAME_SAFETY_LO. NAME_SAFETY_HI in the soft limit checking and these cannot be changed by Userspace! However they do not currently
 //Provide an absolute limit and only really limit the speed to a slower speed than in other regions
 //1. these are for the kernel limit checking and also define the maximum limit values used in check_limit_values() which in turn provides a safety check for control.limits[i] used in the soft_lim() algorithm. This is the final software limit check. USE ELEVATION_LIMIT_HI AS THE POSITION AT STOW LOCK THEN ELEVATION_LIMIT_LO = ELEVATION_LIMIT_HI-16384 (090DEGREES)
-#define AZIMUTH_LIMIT_LO 43000 
-#define AZIMUTH_LIMIT_HI 137000
-#define ELEVATION_LIMIT_LO 32830
-#define ELEVATION_LIMIT_HI 49214
+#define AZIMUTH_LIMIT_LO 30000 
+#define AZIMUTH_LIMIT_HI 106000
+#define ELEVATION_LIMIT_LO 30600
+#define ELEVATION_LIMIT_HI 46700
 //2. these are for the user space limit checking- i.e a second order safety mechanism to slow the antenna velocity command (i.e pid output) to some predetermined speed when inside some encoder angle ranges.soft_lim()
-#define AZIMUTH_SLOW_ZONE_HI 135000
-#define AZIMUTH_SLOW_ZONE_LO 45000
-#define ELEVATION_SLOW_ZONE_HI 48500
-#define ELEVATION_SLOW_ZONE_LO 33500
+#define AZIMUTH_SLOW_ZONE_HI 104000
+#define AZIMUTH_SLOW_ZONE_LO 32000
+#define ELEVATION_SLOW_ZONE_HI 46500
+#define ELEVATION_SLOW_ZONE_LO 30900
 //3. these define the initial maximum drivable encoder positions of the user space program (initialised in init_control_struct())). These can be adjusted dynamically while the program is running after this.
 // They also are permanently (i.e changing them requires recompiling the program)  used for the slow zone regions
 //so the soft_limit() routine will use these values to define 'dangerous' zones i.e near to the limits and cap the antenna speed in these zones. These need to be changed after changing the encoder.
-#define AZIMUTH_SAFETY_LO 45000 
-#define AZIMUTH_SAFETY_HI 135000 //current hard limit is at 141000
-#define ELEVATION_SAFETY_LO 33300 
-#define ELEVATION_SAFETY_HI 48500
+#define AZIMUTH_SAFETY_LO 28500 
+#define AZIMUTH_SAFETY_HI 108000 //current hard limit is at 141000
+#define ELEVATION_SAFETY_LO 30900 
+#define ELEVATION_SAFETY_HI 46500
 
 //these define the maximum speeds in both directions allowed when in the safety zone defined by AZIMUTH_SLOW_ZONE_HI (see 2.) etc. These should only apply when the controller tried to drive 'deeper' into the zone. Driving out of the zone should not effected by the routine- 28 March this has not been implemented in the soft_lim() function yet. Should be trivial
 #define AZ_SLOW_SPEED_POSITIVE 1000
