@@ -1883,9 +1883,9 @@ readout.instantAltErr = readout.instantCommandAlt-loop.altitude_encoder_double;
 	}
 
 	loop.az1_dac_control =
-	    ad5362_crc_pack (XREGISTER_WRITE, CH5, pid_return_new[0]);
+	    ad5362_crc_pack (XREGISTER_WRITE, CH5, -pid_return_new[0]);
 	  loop.az2_dac_control =
-	    ad5362_crc_pack (XREGISTER_WRITE, CH6, pid_return_new[1]);
+	    ad5362_crc_pack (XREGISTER_WRITE, CH6, -pid_return_new[1]);
 	  loop.alt1_dac_control =
 	    ad5362_crc_pack (XREGISTER_WRITE, CH7, pid_return_new[2]);
 	  loop.alt2_dac_control =
