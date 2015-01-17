@@ -2087,6 +2087,9 @@ void readoutStructUpdate(double azerr1,double alterr1,long *pidReturn,long *azta
 		// I did this on 29 March 2013 because there seemed to be a problem with the way the errors were either being caluclated or loaded into the readout_structure
 			readout->az_err_ready_to_read[j] = (float) azerr1 ;
 			readout->alt_err_ready_to_read[j] = (float) alterr1;
+			while(readout->time[j] > 17200000){
+				readout->time[j]-=17200000; //This should correct for the fact that the time needs to be cast to flaot later
+			}
 			readout->time_ready_to_read[j]=readout->time[j];
 			readout->timeuSeconds_ready_to_read[j]=readout->timeuSeconds[j];
 		      }
@@ -2150,7 +2153,7 @@ void readoutStructUpdate(double azerr1,double alterr1,long *pidReturn,long *azta
 	      //printf("Interpolation %f %f %f %f \n",readout->calc_time[1],readout->calc_time[2],readout->az_position[readout->sample_number],readout->alt_position[readout->sample_number]);
 
 	    //  readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1381491125;;
-	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1398483573;;
+	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1398483573;
 //	      readout->timeuSeconds[readout->sample_number] = (long) user->time_struct.tv_usec;
 		if(readout->ppsTime.tv_usec>60000){
 		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value-(1000000-readout->ppsTime.tv_usec);
