@@ -9,6 +9,12 @@ config pid
 	 default M 
         ---help--- 
        Module for PID controller
+
+config ppsInterrupt
+	 tristate "ppsInterrupt"  
+	 default M 
+        ---help--- 
+       Module for ppsInterrupt Testing
        
 config cbass
 	 tristate "cbass"  
