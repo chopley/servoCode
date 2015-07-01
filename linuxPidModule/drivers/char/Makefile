@@ -101,7 +101,8 @@ obj-$(CONFIG_TELCLOCK)		+= tlclk.o
 obj-$(CONFIG_AT91_SPI)		+= at91_spi.o
 obj-$(CONFIG_AT91_SPIDEV)	+= at91_spidev.o
 obj-$(CONFIG_pid)		+= pid/
-obj-$(CONFIG_cbass)	+= cbass/
+obj-$(CONFIG_cbass)		+= cbass/
+obj-$(CONFIG_ppsInterrupt)	+= ppsInterrupt/
 
 obj-$(CONFIG_MWAVE)		+= mwave/
 obj-$(CONFIG_AGP)		+= agp/
