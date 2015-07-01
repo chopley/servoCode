@@ -2155,13 +2155,13 @@ void readoutStructUpdate(double azerr1,double alterr1,long *pidReturn,long *azta
 	    //  readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1381491125;;
 	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1398483573;
 //	      readout->timeuSeconds[readout->sample_number] = (long) user->time_struct.tv_usec;
-		if(readout->ppsTime.tv_usec>60000){
+		if(readout->ppsTime.tv_usec>120000){
 		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value-(1000000-readout->ppsTime.tv_usec);
 		}
-		else if(readout->ppsTime.tv_usec<=40000){
+		else if(readout->ppsTime.tv_usec<=100000){
 		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value+readout->ppsTime.tv_usec;
 		}
-		else if(readout->ppsTime.tv_usec<=60000 && readout->ppsTime.tv_usec>40000){
+		else if(readout->ppsTime.tv_usec<=120000 && readout->ppsTime.tv_usec>100000){
 			printf("NTP time is out by more than 40ms\n");
 		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value;
 		}
