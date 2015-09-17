@@ -9,7 +9,8 @@
 #define AZ_PID 1
 
 //the following two definitions should be adjusted if the angle encoder is replaced- these are very important as the define the rough zero point of the encoders used to translate from encoder to telescope azimuth and elevation
-#define AZIMUTH_ZERO 78243 //angle encoder position at due north (approximate)
+//before 17/9/2015 Klerefontein#define AZIMUTH_ZERO 78243 //angle encoder position at due north (approximate)
+#define AZIMUTH_ZERO 111010 //angle encoder position at due north (approximate)
 #define ELEVATION_ZERO 30416 //angle encoder position at horizon (approximate) [should be calculated from the 'relatively well defined' stow lock position by subtracting 16384- it should be ensured that the encoder is physically positioned so that there is not possibility of an encoder overflow i.e 65535->0. so elevation zero >0 and elevation hi >16384 < 65535]
 
 
