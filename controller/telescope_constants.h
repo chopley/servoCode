@@ -10,8 +10,10 @@
 
 //the following two definitions should be adjusted if the angle encoder is replaced- these are very important as the define the rough zero point of the encoders used to translate from encoder to telescope azimuth and elevation
 //before 17/9/2015 Klerefontein#define AZIMUTH_ZERO 78243 //angle encoder position at due north (approximate)
-#define AZIMUTH_ZERO 111010 //angle encoder position at due north (approximate)
-#define ELEVATION_ZERO 30416 //angle encoder position at horizon (approximate) [should be calculated from the 'relatively well defined' stow lock position by subtracting 16384- it should be ensured that the encoder is physically positioned so that there is not possibility of an encoder overflow i.e 65535->0. so elevation zero >0 and elevation hi >16384 < 65535]
+//changed to 111010 on 17/9/2015 //angle encoder position at due north (approximate)
+#define AZIMUTH_ZERO 114563 //angle encoder position at due north (approximate)
+//#define ELEVATION_ZERO 30416 //angle encoder position at horizon (approximate) [should be calculated from the 'relatively well defined' stow lock position by subtracting 16384- it should be ensured that the encoder is physically positioned so that there is not possibility of an encoder overflow i.e 65535->0. so elevation zero >0 and elevation hi >16384 < 65535]
+#define ELEVATION_ZERO 30709 //angle encoder position at horizon (approximate) [should be calculated from the 'relatively well defined' stow lock position by subtracting 16384- it should be ensured that the encoder is physically positioned so that there is not possibility of an encoder overflow i.e 65535->0. so elevation zero >0 and elevation hi >16384 < 65535]
 
 
 
@@ -34,7 +36,7 @@
 #define ELEVATION_LIMIT_LO 30600
 #define ELEVATION_LIMIT_HI 46700
 //2. these are for the user space limit checking- i.e a second order safety mechanism to slow the antenna velocity command (i.e pid output) to some predetermined speed when inside some encoder angle ranges.soft_lim()
-#define AZIMUTH_SLOW_ZONE_HI 104000
+#define AZIMUTH_SLOW_ZONE_HI 135000
 #define AZIMUTH_SLOW_ZONE_LO 32000
 #define ELEVATION_SLOW_ZONE_HI 46500
 #define ELEVATION_SLOW_ZONE_LO 30900
@@ -42,7 +44,7 @@
 // They also are permanently (i.e changing them requires recompiling the program)  used for the slow zone regions
 //so the soft_limit() routine will use these values to define 'dangerous' zones i.e near to the limits and cap the antenna speed in these zones. These need to be changed after changing the encoder.
 #define AZIMUTH_SAFETY_LO 28500 
-#define AZIMUTH_SAFETY_HI 108000 //current hard limit is at 141000
+#define AZIMUTH_SAFETY_HI 135000 //current hard limit is at 141000
 #define ELEVATION_SAFETY_LO 30900 
 #define ELEVATION_SAFETY_HI 46500
 
@@ -56,8 +58,8 @@
 
 
 
-#define MAX_TACHO_ALLOWABLE 8000
-#define MIN_TACHO_ALLOWABLE -8000
+#define MAX_TACHO_ALLOWABLE 9000
+#define MIN_TACHO_ALLOWABLE -9000
 //this section defines constants used when excepting commands from the network- it also defines ports that are used
 #define LOCAL_SERVER_PORT_OVRO 1503
 #define LOCAL_SERVER_PORT_STRUCT 1502
@@ -71,13 +73,13 @@
 //these define the initial maximum drivable encoder positions of the user space program (initialised in init_control_struct())) These are used in soft_lim() routine and can be changed through a suitable TCP command 
 
 
-#define MAX_AZ_POS_PID 7000
-#define MIN_AZ_POS_PID -7000
+#define MAX_AZ_POS_PID 8000
+#define MIN_AZ_POS_PID -8000
 #define MAX_ALT_POS_PID 7000
 #define MIN_ALT_POS_PID -7000
 //absolute maximum motor speed output after pid- in arbitrary units just fiddle with this till more or less right
-#define MAX_AZ_SPEED 8000
-#define MIN_AZ_SPEED -8000
+#define MAX_AZ_SPEED 12000
+#define MIN_AZ_SPEED -12000
 #define MAX_ALT_SPEED 5000
 #define MIN_ALT_SPEED -5000
 
@@ -87,8 +89,8 @@
 #define MAX_ALT_POS_SPACE_DEG 1
 #define MIN_ALT_POS_SPACE_DEG -1
 //these define the maximum permitted azimuth accelerations that can be commanded to the antenna using the 117 enum (i.e the control that should be used for all user type control- defined as EQUATORAIL2 for historical reasons )-these should be values in mdeg/s/s i.e 1000 means a maximum acceleration of 1000mdeg/s/s or 1deg/s/s- so for a typical cross scan going between 1deg/s and -1 deg/s we would want a turnaround of say 5 seconds giving a acceleration of 2deg/s / 5seconds =0.4 deg/s/s so a value of 400 is appropriate
-#define MAX_AZ_ACCEL 40
-#define MIN_AZ_ACCEL -40
+#define MAX_AZ_ACCEL 80
+#define MIN_AZ_ACCEL -80
 #define MAX_ALT_ACCEL 20
 #define MIN_ALT_ACCEL -20
 //maximum ramp speed (this controls the antenna acceleration)
