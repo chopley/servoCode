@@ -360,7 +360,7 @@ servlet (void *childfd) /* servlet thread */
 	
 	  pthread_mutex_lock (&readout_lock);
 		sprintf(return_string,"ERR,%f,%f\r",1000*readout.instantAzErr,1000*readout.instantAltErr);
-	 printf("ERR,%f,%f\r",1000*readout.instantAzErr,1000*readout.instantAltErr);
+	 	//printf("ERR,%f,%f\r",1000*readout.instantAzErr,1000*readout.instantAltErr);
 	  pthread_mutex_unlock (&readout_lock);
 
 
@@ -478,7 +478,7 @@ servlet (void *childfd) /* servlet thread */
 	    }
 	  else if (readout.ready != 1)
 	    {
-		printf("NoDATA\n");
+	//	printf("NoDATA\n");
 	      sprintf (return_string, "NODATA,\r");
 	    }
 
@@ -552,9 +552,10 @@ servlet (void *childfd) /* servlet thread */
 		azZone=readout.azZone;
 	  pthread_mutex_unlock (&readout_lock);
 	  //write the azimuth zone to a text file for reboot purposes:
-	  fpreadout=fopen("azZoneState.txt", "w");
-		fprintf(fpreadout, "Az Zone %d\n",azZone);
-	  fclose(fpreadout);
+	//CJC commented this out on 12/10/2015 
+	// fpreadout=fopen("azZoneState.txt", "w");
+	//	fprintf(fpreadout, "Az Zone %d\n",azZone);
+	//  fclose(fpreadout);
 	
 	 do
 	    {
@@ -577,6 +578,40 @@ servlet (void *childfd) /* servlet thread */
 	      bzero (return_string, 1024);
 	      sprintf (return_string, "STS,");
 	      //here we change the binary format into a string and repeatedly store in the bin_temp string space
+	      
+					//	STS_VEC Status String
+//        24            IN      A		0 0
+ //       25            IN      THR1+		1 1
+ //       26            IN      MC1+            2 2(Active LO)
+ //       27            IN      MB1+		3 3
+ //       28            IN      B		4 4
+ //       29            IN      THR2+		5 5
+   //     30            IN      MC2+            6 6 (Active LO)
+   //     31            IN      MB2+		7 7
+
+//CHIP 2  CON7          GPIO    Description
+//        12            IN      C		0 8
+//        13            IN      THR3+		1 9
+//        14            IN      MC3+            2 10	(Active LO)
+//        15            IN      MB3+		3 11
+//        16            IN      D		4 12
+//        17            IN      THR4+		5 13
+//        18            IN      MC4+           	6 14 (Active LO)
+//        19            IN      MB4+		7 15
+//        20            IN      Brakes		0 16
+//        21            IN      Lids		1 17
+//        CON8
+//        22            IN      Az Status Limit Switch 2 18
+//        23            IN      
+//        24            IN      
+ //       25            IN      
+ //       26            IN      
+ //       27            IN      
+ //       28            IN      
+ //       29            IN      
+   //     30            IN      
+   //     31            IN      
+
 	      byte_to_binary (STS_VEC[0], bin_temp);
 	      strcat (return_string, bin_temp);
 	      byte_to_binary (STS_VEC[1], bin_temp);
@@ -585,6 +620,7 @@ servlet (void *childfd) /* servlet thread */
 	      //intf("%s",bin_temp);
 	      bin_temp[3] = '\0';	//end the string here i.e allow 3 bits in the last status return
 	      strcat (return_string, bin_temp);
+		//here we could check the azAZone vs STS_VEC[2]<<2 &0x01 which should be the azWrapSwitch
 	      sprintf (bin_temp, "%d", azZone);
 	      strcat (return_string, bin_temp);
 	      if ((timev - time_contactors_engaged) < 15)
@@ -596,7 +632,7 @@ servlet (void *childfd) /* servlet thread */
 
 	      strcat (return_string, bin_temp);
 	      strcat (return_string, "\r");	//we need a carriage return at the end of the strings to parse on the far side
-	      //now we have a string of the following form: A THR1 MC1 MCB1 B THR2 MC2 MCB2 C THR3 MC3 MCB3 D THR4 MC4 MCB4 BRAKES DRIVE_LIDS AZ_ZONE CONTACTOR TIMER- these are made up of 1's and zeros with A,THR# having 0 as standard operating return, MC# and MCB# having 1 for disengaged (i.e not operating value) and 0 for engaged (i.e operating values), BRAKE has 0 for disengaged (i.e operating value) and 1 for engaged (i.e don't drive telescope), drive_lids is 0 for operating value (lids are closed) and 1 when one of the lids is open, and azimuth zone is the kernel azimuth zone which records which zone the antenna is in (0,1,2)- there is a final value which determines whether the contactor turn on was issues in the last 15 seconds or not- 0 for more than 15 seconds and 1 for less than 15 seconds
+	      //now we have a string of the following form: A THR1 MC1 MCB1 B THR2 MC2 MCB2 C THR3 MC3 MCB3 D THR4 MC4 MCB4 BRAKES(16) DRIVE_LIDS(17) AZWRAPSWITCH(18) AZ_ZONE(19) CONTACTOR TIMER- these are made up of 1's and zeros with A,THR# having 0 as standard operating return, MC# and MCB# having 1 for disengaged (i.e not operating value) and 0 for engaged (i.e operating values), BRAKE has 0 for disengaged (i.e operating value) and 1 for engaged (i.e don't drive telescope), drive_lids is 0 for operating value (lids are closed) and 1 when one of the lids is open, and azimuth zone is the kernel azimuth zone which records which zone the antenna is in (0,1,2)- there is a final value which determines whether the contactor turn on was issues in the last 15 seconds or not- 0 for more than 15 seconds and 1 for less than 15 seconds
 	      if (strcmp (sts_return_string, return_string) && j >= 2)
 		{
 		  printf ("STS has changed j= %d\n", j);
@@ -1354,7 +1390,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			  		while (azimuth_val > MAX_AZ_VAL_FLOAT)
 			    		{
 			      			azimuth_val -= 360;
-			      			printf ("reducing AZ VAL %f\n", azimuth_val);
+			      			//printf ("reducing AZ VAL %f\n", azimuth_val);
 			    		}
 			  		//printf("Wrap issue\n");
 				}
@@ -1363,7 +1399,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			  		while (azimuth_val < MIN_AZ_VAL_FLOAT)
 			    		{
 			      			azimuth_val += 360;
-			      			printf ("Increasing az Val %f azimuth_val\n");
+			      			//printf ("Increasing az Val %f azimuth_val\n");
 			    		}
 				}
 
@@ -1420,7 +1456,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			   if ((accel_az > (double) MAX_AZ_ACCEL / 1000.)
 				   || (accel_az < (double) MIN_AZ_ACCEL / 1000.))
 			    {
-			      printf ("Azimuth Acceleration Limit%f %f %f %f %f\n",loop.azimuth_command_double,pos_az_past,accel_az,vel_az,vel_az_past);
+			      //printf ("Azimuth Acceleration Limit%f %f %f %f %f\n",loop.azimuth_command_double,pos_az_past,accel_az,vel_az,vel_az_past);
 			      if (accel_az > (double) MAX_AZ_ACCEL / 1000.)
 				{
 				loop.azimuth_command_double = loop.azimuth_command_double ;
@@ -1435,7 +1471,7 @@ control_loop (int pid_handle, struct pid_structure *userspace)
 			   if ((accel_alt > (double) MAX_ALT_ACCEL / 1000.)
 				   || (accel_alt < (double) MIN_ALT_ACCEL / 1000.))
 			    {
-			      printf ("Altitude Acceleration Limit%f %f %f %f %f\n",loop.altitude_command_double,pos_alt_past,accel_alt,vel_alt,vel_alt_past);
+			      //printf ("Altitude Acceleration Limit%f %f %f %f %f\n",loop.altitude_command_double,pos_alt_past,accel_alt,vel_alt,vel_alt_past);
 			      if (accel_alt > (double) MAX_ALT_ACCEL / 1000.)
 				{
 				loop.altitude_command_double -=0.01 ;
