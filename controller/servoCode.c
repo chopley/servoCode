@@ -117,6 +117,7 @@ int childfd,sd;
 pthread_mutex_t mutexsum;
 pthread_mutex_t pid_coefficients;
 pthread_mutex_t readout_lock;
+volatile struct pid_structure user;
 
 void shutdownServo(void);
 //function to initiate the various structure values
@@ -290,9 +291,11 @@ void *
 servlet (void *childfd) /* servlet thread */  
 {			
  /*This thread handles the TCP socket established when control to the control program is required*/	
-  int n, j,azZone;
+  int n, j,azZone,writeAzZone,azCounter;
   char buf[1024];
   char commands[100][100];
+  extern volatile  struct pid_structure user; //allows access to the user space structure
+  int azWrapSwitchPosition; //float to store the position of the azimuth wrap switch
   float commandsd[10];		//for temporary storage of doubles commands received
   long commandsl[10];		//for temp storage of long commands
   char return_string[1024];
@@ -307,7 +310,8 @@ servlet (void *childfd) /* servlet thread */
   struct hostent *hostp;	/* client host info */
   char *hostaddrp;
   struct pid_structure status, control_servlet;
-  double mjd, fd;
+  double mjd, fd1;
+  extern int fd;
   int IY, IM, ID, second_correction;
   int i,stat;
   struct tm *time_ptr;
@@ -318,6 +322,7 @@ servlet (void *childfd) /* servlet thread */
     bzero (buf, 1024);
   bzero (return_string, 1024);
   n = 1;
+  azCounter = 0 ; //initialize this to zero
   printf ("Starting Servlet\n");
   n = recv ((int) childfd, buf, 1024, 0);
   if (n < 0)
@@ -516,18 +521,18 @@ servlet (void *childfd) /* servlet thread */
 	    }
 	  //printf ("MJD for today is %f \n", mjd);
 	  slaDtf2d (time_ptr->tm_hour, time_ptr->tm_min,
-		    (double) time_ptr->tm_sec, &fd, &j);
+		    (double) time_ptr->tm_sec, &fd1, &j);
 	  if (j != 0)
 	    {
 	      printf
 		("Unnacceptable conversion to MJD in AEL string ovro servlet\n");
 	    }
-	  second_correction = fd * 86400;
+	  second_correction = fd1 * 86400;
 	/*  printf("Seconds since MJD calculated with local time %d Sent %ld %ld\n",
 	     second_correction, commandsl[0], commandsl[1]);*/
-	  second_correction = commandsl[0] - fd * 86400;	//calculate a potential latency in the command sent  
+	  second_correction = commandsl[0] - fd1 * 86400;	//calculate a potential latency in the command sent  
 	  control.eq2_time_begin = timev + second_correction;
-	  //second_correction = commandsl[1] - fd*86400;
+	  //second_correction = commandsl[1] - fd1*86400;
 	  control.eq2_time_end =
 	    control.eq2_time_begin + (commandsl[1] - commandsl[0]);
 	  control.coordinate_command_type = HORIZONTAL_LIST;
@@ -620,7 +625,40 @@ servlet (void *childfd) /* servlet thread */
 	      //intf("%s",bin_temp);
 	      bin_temp[3] = '\0';	//end the string here i.e allow 3 bits in the last status return
 	      strcat (return_string, bin_temp);
-		//here we could check the azAZone vs STS_VEC[2]<<2 &0x01 which should be the azWrapSwitch
+	      azWrapSwitchPosition = (STS_VEC[2]>>2&0x01); //int to store the position of the azimuth wrap switch
+	      if((azWrapSwitchPosition==1) && (readout.az_ready_to_read[0] > azWrapSwitchPosition + 10)){
+			//In this case the azimuth should be less than AZWRAPSWITCH position
+			printf("TT Az - %f Az Switch %d \n",readout.az_ready_to_read[0],STS_VEC[2]>>2&0x01);
+			//decrease the azZone
+			if(azCounter >10){
+				azCounter = 0; //reset the counter
+				azZone-=1;     //decrement the azimuth zone
+				if(azZone>=0 && azZone<=2){ //only set the azimuth zone to something between 0 and 2
+					printf("Changing the Azimuth Zone \nTT Az %f Az Switch %d azZone %d \n",readout.az_ready_to_read[0],azWrapSwitchPosition,azZone);
+					//and write to the control structure
+					ioctl(fd,DEV_IOCTL_WRITE_AZIMUTH_ZONE, &azZone);   
+				}
+			}
+		}
+	      else if((azWrapSwitchPosition)==0 && (readout.az_ready_to_read[0] < AZWRAPSWITCH-10.) )  { //if the azWrapSwitch is in Position 0 and the azimuth angle is less than the AZWRAPSWITCH (i.e. when the az wrap changes from 0 to 1)
+			azCounter++; 
+			printf("TT Az -  %f Az Switch %d azZone %d \n",readout.az_ready_to_read[0],STS_VEC[2]>>2&0x01,azZone);
+			//increase the azZone
+			if(azCounter >10){
+				azCounter = 0; //reset the counter
+				azZone+=1; //increment the azimuth zone
+				if(azZone>=0 && azZone<=2){ //only set the azimuth zone to something between 0 and 2
+					printf("Changing the Azimuth Zone \nTT Az %f Az Switch %d azZone %d \n",readout.az_ready_to_read[0],azWrapSwitchPosition,azZone);
+					//and write to the control structure
+					ioctl(fd,DEV_IOCTL_WRITE_AZIMUTH_ZONE, &azZone);   
+				}
+			}
+		}
+	      else{
+			azCounter =0 ;
+		}
+
+
 	      sprintf (bin_temp, "%d", azZone);
 	      strcat (return_string, bin_temp);
 	      if ((timev - time_contactors_engaged) < 15)
@@ -635,7 +673,7 @@ servlet (void *childfd) /* servlet thread */
 	      //now we have a string of the following form: A THR1 MC1 MCB1 B THR2 MC2 MCB2 C THR3 MC3 MCB3 D THR4 MC4 MCB4 BRAKES(16) DRIVE_LIDS(17) AZWRAPSWITCH(18) AZ_ZONE(19) CONTACTOR TIMER- these are made up of 1's and zeros with A,THR# having 0 as standard operating return, MC# and MCB# having 1 for disengaged (i.e not operating value) and 0 for engaged (i.e operating values), BRAKE has 0 for disengaged (i.e operating value) and 1 for engaged (i.e don't drive telescope), drive_lids is 0 for operating value (lids are closed) and 1 when one of the lids is open, and azimuth zone is the kernel azimuth zone which records which zone the antenna is in (0,1,2)- there is a final value which determines whether the contactor turn on was issues in the last 15 seconds or not- 0 for more than 15 seconds and 1 for less than 15 seconds
 	      if (strcmp (sts_return_string, return_string) && j >= 2)
 		{
-		  printf ("STS has changed j= %d\n", j);
+		  //printf ("STS has changed j= %d\n", j);
 		}
 
 	    }
@@ -1083,7 +1121,9 @@ control_loop (int pid_handle, struct pid_structure *userspace)
   long aztacho1v[20], aztacho2v[20], alttacho1v[20], alttacho2v[20];
   double fir[20];
   long aztacho1d, aztacho2d, alttacho1d, alttacho2d;
-  struct pid_structure user, init;
+ // struct pid_structure user, init;
+  extern volatile  struct pid_structure user;
+  struct pid_structure init;
   volatile struct pid_structure loop;
   long pid_return_old[4];
   long pid_return_new[4];
@@ -2189,7 +2229,13 @@ void readoutStructUpdate(double azerr1,double alterr1,long *pidReturn,long *azta
 	      //printf("Interpolation %f %f %f %f \n",readout->calc_time[1],readout->calc_time[2],readout->az_position[readout->sample_number],readout->alt_position[readout->sample_number]);
 
 	    //  readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1381491125;;
-	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1398483573;
+	      //readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1398483573;
+	      readout->time[readout->sample_number] = (long) user->time_struct.tv_sec-1410483573; //updated 11/11/2015
+		while(readout->time[readout->sample_number]>12000000){
+			readout->time[readout->sample_number]-=12000000;
+                }
+
+
 //	      readout->timeuSeconds[readout->sample_number] = (long) user->time_struct.tv_usec;
 		if(readout->ppsTime.tv_usec>120000){
 		      readout->timeuSeconds[readout->sample_number] = (long) readout->current_value-(1000000-readout->ppsTime.tv_usec);
