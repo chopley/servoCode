@@ -97,8 +97,9 @@
 #define MAX_AZ_RAMP 30
 #define MAX_ALT_RAMP 30
 //floating point encoder position limits
-#define MAX_AZ_VAL_FLOAT 130 //change these when the encoders are changed
-#define MIN_AZ_VAL_FLOAT -270 //change these when the encoders are changed.
+#define MAX_AZ_VAL_FLOAT 140 //change these when the encoders are changed
+#define MIN_AZ_VAL_FLOAT -280 //change these when the encoders are changed.
+#define AZWRAPSWITCH -80.0
 #define MAX_ALT_VAL_FLOAT 87
 #define MIN_ALT_VAL_FLOAT 5
 
