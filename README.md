@@ -33,40 +33,40 @@ are described in CROSS_COMPILERS/README
 4. Slalib
 sudo apt-get install sudo apt-get install python-tk python-numpy python-dev
 
-a. Compile for ARM (see slalib_c/README_by_CHARLES/README for instructions)
-b. Compile for PC (as above)
-c. Compile for python (see pyslalib-1.0/README.txt)
+- Compile for ARM (see slalib_c/README_by_CHARLES/README for instructions)
+- Compile for PC (as above)
+- Compile for python (see pyslalib-1.0/README.txt)
 
 5. SAMBA (AT91) [NOTE these are from my written notes and may not be
 perfect]
-a. Attached ISO has all the programs required
-b. Install AT91-ISP (ATMEL/Install AT91_ISP.exe)
-c. Install USB driver (ATMEL/samba-driver/BasicUSB-6124
-d. Let windows automatically install the USB after this
-e. Run Samba v2.5 and connect as appropriate 
-f. Copy Sam9_l9260_samba from CD to harddisk
-g. Copy uImage2.6.26 to uImage_write in SAM9_l9260_samba- This can be found
+- Attached ISO has all the programs required
+- Install AT91-ISP (ATMEL/Install AT91_ISP.exe)
+- Install USB driver (ATMEL/samba-driver/BasicUSB-6124
+- Let windows automatically install the USB after this
+- Run Samba v2.5 and connect as appropriate 
+- Copy Sam9_l9260_samba from CD to harddisk
+- Copy uImage2.6.26 to uImage_write in SAM9_l9260_samba- This can be found
 in the linux_sources/linux-2.6.26_CBASS/arch/arm/boot/uImage after kernel is
 properly compiled or a pre-compiled version is located in the parent
 directory
-h. Copy NANDFLASH.tcl from ATMEL/ on CD to lib/AT91SAM9260EK/ on PC Samba
+- Copy NANDFLASH.tcl from ATMEL/ on CD to lib/AT91SAM9260EK/ on PC Samba
 installation
-i. Remove NANDF_E and DF_E jumpers
-j. Power on Board
-k Replace Jumpers- any tcl problems mean jumpers have not been replaced or
+- Remove NANDF_E and DF_E jumpers
+- Power on Board
+- Replace Jumpers- any tcl problems mean jumpers have not been replaced or
 that NANDFLASH.tcl has not been updated in the lib/AT91SAM9260EK
-l Run AT91SAM9260...linux...
+- Run AT91SAM9260...linux...
 
 6. ssh
 sudo apt-get install ssh
 
 7. wvdial
-sudo apt-get install wvdial
+- sudo apt-get install wvdial
 
 8. ntp
-sudo apt-get install ntp
-check /etc/resolv.conf 
-change /etc/ntp.conf with 
+- sudo apt-get install ntp
+- check /etc/resolv.conf 
+- change /etc/ntp.conf with 
 server 127.127.1.1
 fudge 127.127.1.1 stratum 9
 
@@ -78,7 +78,7 @@ fudge 127.127.1.1 stratum 9
 
 TESTING SYSTEM
 1. Try compiling the ARM kernel in linux_sources/linux-2.6.26_CBASS- use
-#> make ARCH=arm CROSS_COMPILE=arm-linux- INSTALL_MOD_PATH=/?PATH?/ modules
+- #> make ARCH=arm CROSS_COMPILE=arm-linux- INSTALL_MOD_PATH=/?PATH?/ modules
 
 2. Try running the python control gui (embed/cbass_control_gui.py)
 
