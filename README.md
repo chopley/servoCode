@@ -2,8 +2,11 @@ Servo Code for the Southern Antenna
 =========
 
 Userspace
-=========
-make development in the home directory
+The different makes are detailed in the Makefile. 
+Typically you can use
+
+$ make development 
+
 
 Kernel Module
 =========
