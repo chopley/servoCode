@@ -17,11 +17,11 @@ The following directories include files to do a reinstall of the CBASS
 toolchain
 
 1. Python
-> sudo apt-get install python
-> sudo apt-get install python-matplotlib
-> sudo apt-get install python-scipy
-> sudo apt-get install python-numpy
-> sudo apt-get install python-tk python-dev
+- sudo apt-get install python
+- sudo apt-get install python-matplotlib
+- sudo apt-get install python-scipy
+- sudo apt-get install python-numpy
+- sudo apt-get install python-tk python-dev
 
 2. Stellarium
 sudo apt-get install stellarium
