@@ -2,6 +2,11 @@ servoCode
 =========
 
 Servo Code for the Southern Antenna
+
+Userspace
+make development in the home directory
+
+Kernel Module
 There is a copy of the Kubuntu 9.04 DVD install iso located in ISO- This can
 be installed
 
